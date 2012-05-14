@@ -15,7 +15,11 @@ from boto.exception import S3CreateError, S3ResponseError
 from boto.s3.connection import Location, S3Connection
 from boto.s3.key import Key
 
-import progressbar
+try:
+    import progressbar
+    HAS_PROGRESSBAR = True
+except ImportError:
+    HAS_PROGRESSBAR = False
 
 
 FILE = os.path.expanduser('~/.mulder')
@@ -181,10 +185,10 @@ class Backup(Base):
         """
         size = os.stat(self.archive).st_size
         basename = os.path.basename(self.archive)
-        self.start_progressbar(basename, size)
         bucket = self.conn.get_bucket(self.bucket)
         key = Key(bucket)
         key.name = basename
+        self.start_progressbar(basename, size)
         key.set_contents_from_filename(self.archive, cb=self.update_progressbar, num_cb=100)
 
     def setup_connection(self):
@@ -194,6 +198,8 @@ class Backup(Base):
         self.conn = S3Connection(self.access_key, self.secret_key)
 
     def start_progressbar(self, filename, size):
+        if not HAS_PROGRESSBAR:
+            return
         widgets = [
             filename, ' ', progressbar.Bar(), ' ',
             progressbar.FileTransferSpeed(), ' | ', progressbar.Percentage(),
@@ -206,13 +212,15 @@ class Backup(Base):
         """
         Finish progress bar.
         """
-        self.progressbar.finish()
+        if HAS_PROGRESSBAR:
+            self.progressbar.finish()
 
     def update_progressbar(self, current, total):
         """
         Update progress bar.
         """
-        self.progressbar.update(current)
+        if HAS_PROGRESSBAR:
+            self.progressbar.update(current)
 
     def validate_files(self):
         """
