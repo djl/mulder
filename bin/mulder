@@ -1,0 +1,188 @@
+#!/usr/bin/env python
+"""
+Usage: mulder [<backup>]
+"""
+import ConfigParser
+import datetime
+import os
+import subprocess
+import sys
+import tarfile
+import textwrap
+
+from boto.exception import S3CreateError, S3ResponseError
+from boto.s3.connection import Location, S3Connection
+from boto.s3.key import Key
+
+import progressbar
+
+
+FILE = os.path.expanduser('~/.mulder')
+TMPDIR = '/tmp/'
+
+
+class Base(object):
+    message_width = 79
+
+    def error(self, msg, exitcode=1):
+        msg = os.path.basename(sys.argv[0]) + ': ' + msg
+        print >> sys.stderr, '\n'.join(textwrap.wrap(msg, self.message_width))
+        sys.exit(exitcode)
+
+
+class Mulder(Base):
+
+    def __init__(self):
+        self.setup_config()
+        self.setup_auth()
+
+    def backup(self, backup):
+        if not self.config.has_section(backup):
+            self.error("Invalid backup '%s'" % backup)
+
+        # build a dict to pass to Backup()
+        opts = {}
+        for tpl in self.config.items(backup):
+            opts[tpl[0]] = tpl[1]
+        opts['backup'] = backup
+        opts['access_key'] = self.access_key
+        opts['secret_key'] = self.secret_key
+
+        backup = Backup(**opts)
+        backup.create_and_upload()
+
+    def eval_option(self, cmd):
+        proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+        return proc.communicate()[0].strip()
+
+    def setup_auth(self):
+        for option in ['access_key', 'secret_key']:
+            # try to get the regular options
+            if self.config.has_option('auth', option):
+                value = self.config.get('auth', option)
+                setattr(self, option, value)
+
+            # try to get the `_eval` option
+            if self.config.has_option('auth', option + '_eval'):
+                value = self.eval_option(self.config.get('auth', option + '_eval'))
+                setattr(self, option, value)
+
+            if getattr(self, option, None) is None:
+                self.error("Couldn't read option '%s' in your config file." % option)
+
+    def setup_config(self):
+        self.config = ConfigParser.ConfigParser()
+        self.config_file = os.path.expanduser(FILE)
+        self.backups = []
+
+        try:
+            self.config.readfp(open(self.config_file))
+        except IOError:
+            self.error("Couldn't read your config file.")
+
+        for section in self.config.sections():
+            if section != 'auth':
+                self.backups.append(section)
+
+
+class Backup(Base):
+    def __init__(self, **kwargs):
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+        self.setup_connection()
+        self.validate_files()
+
+    def create_and_upload(self):
+        # TODO: do not hardcode '/tmp/'
+        name = datetime.datetime.now().strftime(self.name) + '.tar.gz'
+        name = os.path.join(TMPDIR, name)
+
+        # create the tarball
+        tarball = tarfile.open(name, 'w|gz')
+        for fn in self.files:
+            tarball.add(fn)
+        tarball.close()
+
+        # files to upload (and eventually delete)
+        files = [name]
+
+        # encrypt the file
+        if hasattr(self, 'gpg'):
+            cmds = ['gpg', '--encrypt', '--default-recipient-self', name]
+            proc = subprocess.Popen(cmds)
+            proc.communicate()
+            name = name + '.gpg'
+            files.append(name)
+
+        # upload to S3 and delete
+        bn = os.path.basename(name)
+        size = os.stat(name).st_size
+        try:
+            self.start_progressbar(bn, size)
+            bucket = self.conn.get_bucket(self.bucket)
+            key = Key(bucket)
+            key.name = bn
+            key.set_contents_from_filename(name, cb=self.progress, num_cb=100)
+            self.finish_progressbar()
+        except S3ResponseError, e:
+            self.error(e.error_message)
+        finally:
+            # finally, delete the tarball and gpg file
+            for fn in files:
+                os.unlink(fn)
+
+    def expand(self, fn):
+        fn = os.path.expandvars(fn)
+        fn = os.path.expanduser(fn)
+        return os.path.abspath(fn)
+
+    def setup_connection(self):
+        self.conn = S3Connection(self.access_key, self.secret_key)
+
+    def start_progressbar(self, filename, size):
+        widgets = [
+            filename, ' ', progressbar.Bar(), ' ',
+            progressbar.FileTransferSpeed(), ' | ', progressbar.Percentage(),
+            ' ',  progressbar.ETA()
+        ]
+        self.progressbar = progressbar.ProgressBar(widgets=widgets, maxval=size)
+        self.progressbar.start()
+
+    def finish_progressbar(self):
+        self.progressbar.finish()
+
+    def progress(self, current, total):
+        self.progressbar.update(current)
+
+    def validate_files(self):
+        if not self.files:
+            self.error("No files specified for backup '%s'" % self.backup)
+
+        files = []
+        for fn in self.files.split(','):
+            fn = self.expand(fn.strip())
+            if not any([os.path.isfile(fn), os.path.isdir(fn)]):
+                self.error("Invalid file/directory '%s' for backup '%s'" % (fn, self.backup))
+            files.append(fn)
+        self.files = files
+
+
+def main():
+    # help message
+    if len(sys.argv) > 1 and sys.argv[1] in ('-h', '--help'):
+        sys.stderr.write(__doc__.lstrip())
+        sys.exit(2)
+
+    # the heavy lifter
+    mulder = Mulder()
+
+    # list all backups
+    if len(sys.argv) == 1:
+        print '\n'.join(mulder.backups)
+        sys.exit(0)
+
+    # do it
+    mulder.backup(sys.argv[1])
+
+if __name__ == '__main__':
+    main()
