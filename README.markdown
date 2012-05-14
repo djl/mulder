@@ -55,7 +55,8 @@ wish to do something like this:
    The S3 bucket to upload to.
 
 * `files`
-   A list of comma-separated set of files and directories to be backed up.
+   A list of comma-separated set of files and directories to be backed
+   up. Each item in this set will be included in the final gzipped tarball.
 
 * `name`
    The name of the archive to be created. Treated as an `strftime(3)` string.
