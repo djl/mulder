@@ -92,42 +92,58 @@ class Backup(Base):
     REQUIRED_OPTIONS = ['bucket', 'name', 'files']
 
     def __init__(self, **kwargs):
+        # the filename of the backup
+        self.filename = None
+
+        # a list of files created
+        # (the tarball + any encrypted file)
+        self.files = []
+
+        # set the options
+        # TODO: this is kinda ugly, find a cleaner way to handle it
         for k, v in kwargs.items():
             setattr(self, k, v)
+
+        # validate options and file
+        # best to do this here so we don't create any unneccesary files
         self.validate_options()
         self.validate_files()
+
+        # create the connection to S3
+        # again, do this early in case we can't connect and are left with
+        # a bunch of backup files with nowhere to put them
         self.setup_connection()
 
     def create_and_upload(self):
-        name = datetime.datetime.now().strftime(self.name) + '.tar.gz'
-        name = os.path.join(TMPDIR, name)
+        basename = datetime.datetime.now().strftime(self.name) + '.tar.gz'
+        filename = os.path.join(TMPDIR, basename)
 
         # create the tarball
-        tarball = tarfile.open(name, 'w|gz')
+        tarball = tarfile.open(filename, 'w|gz')
         for fn in self.files:
             tarball.add(fn, filter=self.validate_exclude)
         tarball.close()
 
-        # files to upload (and eventually delete)
-        files = [name]
+        # files being created
+        files = [filename]
 
         # encrypt the file
         if hasattr(self, 'gpg'):
-            cmds = ['gpg', '--encrypt', '--default-recipient-self', name]
+            cmds = ['gpg', '--encrypt', '--default-recipient-self', filename]
             proc = subprocess.Popen(cmds)
             proc.communicate()
-            name = name + '.gpg'
-            files.append(name)
+            filename = filename + '.gpg'
+            basename = basename + '.gpg'
+            files.append(filename)
 
-        # upload to S3 and delete
-        bn = os.path.basename(name)
-        size = os.stat(name).st_size
+        # upload to S3 and delete the original files
+        size = os.stat(filename).st_size
         try:
-            self.start_progressbar(bn, size)
+            self.start_progressbar(basename, size)
             bucket = self.conn.get_bucket(self.bucket)
             key = Key(bucket)
-            key.name = bn
-            key.set_contents_from_filename(name, cb=self.progress, num_cb=100)
+            key.name = basename
+            key.set_contents_from_filename(filename, cb=self.progress, num_cb=100)
             self.finish_progressbar()
         except S3ResponseError, e:
             self.error(e.error_message)
@@ -171,8 +187,10 @@ class Backup(Base):
             files.append(fn)
         self.files = files
 
-    def validate_exclude(self, fn):
-        return fn in getattr(self, 'exclude', [])
+    def validate_exclude(self, tarinfo):
+        if tarinfo in getattr(self, 'exclude', []):
+            return None
+        return tarinfo
 
     def validate_options(self):
         for option in self.REQUIRED_OPTIONS:
