@@ -26,10 +26,21 @@ class Base(object):
     message_width = 79
 
     def error(self, msg, exitcode=1):
+        """
+        Print ``msg`` to stderr and exit with ``exitcode``.
+        """
         msg = os.path.basename(sys.argv[0]) + ': ' + msg
         msg = '\n'.join(textwrap.wrap(msg, self.message_width)) + '\n'
         sys.stderr.write(msg)
         sys.exit(exitcode)
+
+    def expand(self, fn):
+        """
+        Fully expand a path.
+        """
+        fn = os.path.expandvars(fn)
+        fn = os.path.expanduser(fn)
+        return os.path.abspath(fn)
 
 
 class Mulder(Base):
@@ -39,6 +50,9 @@ class Mulder(Base):
         self.setup_auth()
 
     def backup(self, backup):
+        """
+        Run a backup.
+        """
         if not self.config.has_section(backup):
             self.error("Invalid backup '%s'" % backup)
 
@@ -51,13 +65,19 @@ class Mulder(Base):
         opts['secret_key'] = self.secret_key
 
         backup = Backup(**opts)
-        backup.create_and_upload()
+        backup.run()
 
     def eval_option(self, cmd):
+        """
+        Call ``cmd``, returning it's stdout output.
+        """
         proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
         return proc.communicate()[0].strip()
 
     def setup_auth(self):
+        """
+        Set up the S3 authentication.
+        """
         for option in ['access_key', 'secret_key']:
             # try to get the regular options
             if self.config.has_option('auth', option):
@@ -69,16 +89,19 @@ class Mulder(Base):
                 value = self.eval_option(self.config.get('auth', option + '_eval'))
                 setattr(self, option, value)
 
-            if getattr(self, option, None) is None:
-                self.error("Couldn't read option '%s' in your config file." % option)
+            # couldn't find any option
+            if not getattr(self, option, ''):
+                self.error("Missing option '%s' in your config file." % option)
 
     def setup_config(self):
+        """
+        Parse config file.
+        """
         self.config = ConfigParser.ConfigParser()
-        self.config_file = os.path.expanduser(FILE)
         self.backups = []
 
         try:
-            self.config.readfp(open(self.config_file))
+            self.config.readfp(open(self.expand(FILE)))
         except IOError:
             self.error("Couldn't read your config file.")
 
@@ -92,72 +115,82 @@ class Backup(Base):
     REQUIRED_OPTIONS = ['bucket', 'name', 'files']
 
     def __init__(self, **kwargs):
-        # the filename of the backup
-        self.filename = None
-
-        # a list of files created
-        # (the tarball + any encrypted file)
-        self.files = []
-
         # set the options
         # TODO: this is kinda ugly, find a cleaner way to handle it
         for k, v in kwargs.items():
             setattr(self, k, v)
 
-        # validate options and file
+        # validate options, file and S3 connections
         # best to do this here so we don't create any unneccesary files
+        # or network connections
         self.validate_options()
         self.validate_files()
-
-        # create the connection to S3
-        # again, do this early in case we can't connect and are left with
-        # a bunch of backup files with nowhere to put them
         self.setup_connection()
 
-    def create_and_upload(self):
-        basename = datetime.datetime.now().strftime(self.name) + '.tar.gz'
-        filename = os.path.join(TMPDIR, basename)
+    def run(self):
+        """
+        Create an archive and upload it, encrypting if necessary.
+        """
+        try:
+            self.create_archive()
+            self.encrypt_archive()
+            self.upload_archive()
+        except S3ResponseError, e:
+            self.error(e.error_message)
+        except Exception as e:
+            self.error(e)
+        finally:
+            self.cleanup()
 
-        # create the tarball
+    def cleanup(self):
+        """
+        Removes any archives created by the backup.
+        """
+        for fn in self.archives:
+            os.unlink(fn)
+
+    def create_archive(self):
+        """
+        Create the archive from the given list of files.
+        """
+        filename = datetime.datetime.now().strftime(self.name) + '.tar.gz'
+        filename = os.path.join(TMPDIR, filename)
+
         tarball = tarfile.open(filename, 'w|gz')
         for fn in self.files:
             tarball.add(fn, filter=self.validate_exclude)
         tarball.close()
 
-        # files being created
-        files = [filename]
+        self.archive = filename
+        self.archives = [filename]
 
-        # encrypt the file
-        if hasattr(self, 'gpg'):
-            cmds = ['gpg', '--encrypt', '--default-recipient-self', filename]
+    def encrypt_archive(self, force=False):
+        """
+        Encrypt the archive if necessary (or if forced).
+        """
+        if getattr(self, 'gpg', force):
+            cmds = ['gpg', '--encrypt', '--default-recipient-self', self.archive]
             proc = subprocess.Popen(cmds)
             proc.communicate()
-            filename = filename + '.gpg'
-            basename = basename + '.gpg'
-            files.append(filename)
+            self.archive = self.archive + '.gpg'
+            self.archives.append(self.archive)
 
-        # upload to S3 and delete the original files
-        size = os.stat(filename).st_size
-        try:
-            self.start_progressbar(basename, size)
-            bucket = self.conn.get_bucket(self.bucket)
-            key = Key(bucket)
-            key.name = basename
-            key.set_contents_from_filename(filename, cb=self.progress, num_cb=100)
-            self.finish_progressbar()
-        except S3ResponseError, e:
-            self.error(e.error_message)
-        finally:
-            # finally, delete the tarball and gpg file
-            for fn in files:
-                os.unlink(fn)
-
-    def expand(self, fn):
-        fn = os.path.expandvars(fn)
-        fn = os.path.expanduser(fn)
-        return os.path.abspath(fn)
+    def upload_archive(self):
+        """
+        Upload the archive to S3.
+        """
+        size = os.stat(self.archive).st_size
+        basename = os.path.basename(self.archive)
+        self.start_progressbar(basename, size)
+        bucket = self.conn.get_bucket(self.bucket)
+        key = Key(bucket)
+        key.name = basename
+        key.set_contents_from_filename(self.archive, cb=self.update_progressbar, num_cb=100)
 
     def setup_connection(self):
+        """
+        Set up a connection to S3.
+        """
         self.conn = S3Connection(self.access_key, self.secret_key)
 
     def start_progressbar(self, filename, size):
@@ -170,12 +203,22 @@ class Backup(Base):
         self.progressbar.start()
 
     def finish_progressbar(self):
+        """
+        Finish progress bar.
+        """
         self.progressbar.finish()
 
-    def progress(self, current, total):
+    def update_progressbar(self, current, total):
+        """
+        Update progress bar.
+        """
         self.progressbar.update(current)
 
     def validate_files(self):
+        """
+        Make sure the files option is not empty and that each file
+        exists.
+        """
         if not self.files:
             self.error("No files specified for backup '%s'" % self.backup)
 
@@ -188,6 +231,9 @@ class Backup(Base):
         self.files = files
 
     def validate_exclude(self, tarinfo):
+        """
+        Checks if a file should be excluded from the archive.
+        """
         if tarinfo in getattr(self, 'exclude', []):
             return None
         return tarinfo
