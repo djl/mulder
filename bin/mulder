@@ -26,7 +26,8 @@ class Base(object):
 
     def error(self, msg, exitcode=1):
         msg = os.path.basename(sys.argv[0]) + ': ' + msg
-        print >> sys.stderr, '\n'.join(textwrap.wrap(msg, self.message_width))
+        msg = '\n'.join(textwrap.wrap(msg, self.message_width)) + '\n'
+        sys.stderr.write(msg)
         sys.exit(exitcode)
 
 
@@ -178,7 +179,7 @@ def main():
 
     # list all backups
     if len(sys.argv) == 1:
-        print '\n'.join(mulder.backups)
+        sys.stdout.write('\n'.join(mulder.backups))
         sys.exit(0)
 
     # do it
