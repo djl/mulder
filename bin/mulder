@@ -8,6 +8,7 @@ import os
 import subprocess
 import sys
 import tarfile
+import tempfile
 import textwrap
 
 from boto.exception import S3CreateError, S3ResponseError
@@ -18,7 +19,7 @@ import progressbar
 
 
 FILE = os.path.expanduser('~/.mulder')
-TMPDIR = '/tmp/'
+TMPDIR = tempfile.gettempdir()
 
 
 class Base(object):
@@ -98,7 +99,6 @@ class Backup(Base):
         self.setup_connection()
 
     def create_and_upload(self):
-        # TODO: do not hardcode '/tmp/'
         name = datetime.datetime.now().strftime(self.name) + '.tar.gz'
         name = os.path.join(TMPDIR, name)
 
