@@ -16,8 +16,8 @@ List all backups with `mulder`:
 
     $ mulder
     documents
-    work
     pictures
+    work
     
 
 Run a backup with `mulder <backup>`:
@@ -32,16 +32,16 @@ SETUP
 Mulder reads from an INI-style config file called `~/.mulder`. Each
 section of this file corresponds to a single backup.
 
-## AWS credentials
+### AWS credentials
 
-AWS credentials are stored in an `auth` section. The settings are not
-so cryptically called `access_key` and `secret_key`.
+AWS access and secret keys are stored in an `auth` section. The
+settings are not so cryptically called `access_key` and `secret_key`.
 
 This section also supports two special settings: `access_key_eval` and
 `secret_key_eval`. These settings can be used to specify a shell
 command which returns the relevant values.
 
-If, for example, you kept your credentials in GNOME Keyring you may
+If, for example, you kept your credentials in GNOME Keyring, you may
 wish to do something like this:
 
     [auth]
@@ -49,7 +49,7 @@ wish to do something like this:
     secret_key_eval = gnome-keyring-query get aws_secret_key
 
 
-## Backup settings
+### Backup settings
 
 * `bucket`
    The S3 bucket to upload to.
@@ -65,20 +65,19 @@ wish to do something like this:
 
 * `gpg` (optional) 
 
-   Encrypt snapshots? If true, will encrypt the uploads with your
-   default key.
+   Encrypt snapshots with your default key
 
 
 
-EXAMPLES
+EXAMPLE
 -------
-
-
-### Basic example
 
     [auth]
     access_key = ACCESSKEY
     secret_key = SECRETKEY
+    # alternative version with GNOME Keyring
+    # access_key_eval = gnome-keyring-query get aws_access_key
+    # secret_key_eval = gnome-keyring-query get aws_secret_key
 
     [documents]
     name = "documents-%Y-%m-%d"
@@ -97,18 +96,6 @@ EXAMPLES
     files = /home/bob/misc, /home/bob/this, /home/bob/that
     bucket = bob-misc
 
-
-### Example with `_eval` options
-
-    [auth]
-    access_key_eval = wallet aws_access_key
-    secret_key_eval = wallet aws_secret_key
-
-    [documents]
-    name = "documents-%Y-%m-%d"
-    files = /home/bob/Documents
-    gpg = yes
-    bucket = me.backups.documents
 
 
 TODO
