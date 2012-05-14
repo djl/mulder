@@ -98,9 +98,17 @@ EXAMPLE
     bucket = bob-misc
 
 
+REQUIREMENTS
+------------
+
+* A faily recent version of Python 2.X (tested on 2.7)
+* [boto](http://boto.cloudhackers.com/)
+* [progressbar](http://pypi.python.org/pypi/progressbar/) (optional, but it's pretty)
+
 
 TODO
 ----
 
 * Better error handling
 * Refactor. Damn this thing is ugly.
+* Add `_eval` equivalents for all options?
