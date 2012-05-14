@@ -87,11 +87,15 @@ class Mulder(Base):
 
 
 class Backup(Base):
+
+    REQUIRED_OPTIONS = ['bucket', 'name', 'files']
+
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
-        self.setup_connection()
+        self.validate_options()
         self.validate_files()
+        self.setup_connection()
 
     def create_and_upload(self):
         # TODO: do not hardcode '/tmp/'
@@ -166,6 +170,11 @@ class Backup(Base):
                 self.error("Invalid file/directory '%s' for backup '%s'" % (fn, self.backup))
             files.append(fn)
         self.files = files
+
+    def validate_options(self):
+        for option in self.REQUIRED_OPTIONS:
+            if not getattr(self, option, None):
+                self.error("Backup '%s' is missing option '%s'" % (self.backup, option))
 
 
 def main():

@@ -102,5 +102,4 @@ TODO
 ----
 
 * Better error handling
-* Validation of required arguments (name, files, bucket)
 * Refactor. Damn this thing is ugly.
