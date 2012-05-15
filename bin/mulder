@@ -247,6 +247,9 @@ class Backup(Base):
         return tarinfo
 
     def validate_options(self):
+        """
+        Make sure each required option is present.
+        """
         for option in self.REQUIRED_OPTIONS:
             if not getattr(self, option, None):
                 self.error("Backup '%s' is missing option '%s'" % (self.backup, option))

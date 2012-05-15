@@ -52,21 +52,26 @@ wish to do something like this:
 ### Backup settings
 
 * `bucket`
+
    The S3 bucket to upload to.
 
 * `files`
+
    A list of comma-separated set of files and directories to be backed
-   up. Each item in this set will be included in the final gzipped tarball.
+   up. Each item in this set will be included in the final gzipped
+   tarball.
 
 * `name`
+
    The name of the archive to be created. Treated as an `strftime(3)` string.
 
 * `exclude` (optional)
+
    A list of files to exclude from a backup.
 
 * `gpg` (optional) 
 
-   Encrypt snapshots with your default key
+   Encrypt snapshots with your default key.
 
 
 
@@ -109,6 +114,5 @@ REQUIREMENTS
 TODO
 ----
 
-* Better error handling
 * Refactor. Damn this thing is ugly.
 * Add `_eval` equivalents for all options?
