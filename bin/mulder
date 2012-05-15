@@ -119,9 +119,12 @@ class Backup(Base):
 
     REQUIRED_OPTIONS = ['bucket', 'name', 'files']
 
-    def __init__(self, **kwargs):
+    def __init__(self, bucket, name, files, **kwargs):
+        self.bucket = bucket
+        self.name = name
+        self.files = files
+
         # set the options
-        # TODO: this is kinda ugly, find a cleaner way to handle it
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -141,7 +144,7 @@ class Backup(Base):
             self.encrypt_archive()
             self.upload_archive()
         except S3ResponseError, e:
-            self.error(e.error_message)
+            self.error("Error in backup '%s': %s" % (self.backup, e.error_message))
         except Exception as e:
             self.error(e)
         finally:
