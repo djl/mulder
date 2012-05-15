@@ -266,7 +266,7 @@ def main():
 
     # list all backups
     if len(sys.argv) == 1:
-        sys.stdout.write('\n'.join(mulder.backups))
+        sys.stdout.write('\n'.join(mulder.backups) + '\n')
         sys.exit(0)
 
     # do it
