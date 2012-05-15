@@ -18,7 +18,7 @@ List all backups with `mulder`:
     documents
     pictures
     work
-    
+
 
 Run a backup with `mulder <backup>`:
 
@@ -69,7 +69,7 @@ wish to do something like this:
 
    A list of files to exclude from a backup.
 
-* `gpg` (optional) 
+* `gpg` (optional)
 
    Encrypt snapshots with your default key.
 
@@ -103,6 +103,7 @@ EXAMPLE
     bucket = bob-misc
 
 
+
 REQUIREMENTS
 ------------
 
@@ -111,8 +112,10 @@ REQUIREMENTS
 * [progressbar](http://pypi.python.org/pypi/progressbar/) (optional, but it's pretty)
 
 
+
 TODO
 ----
 
 * Refactor. Damn this thing is ugly.
 * Add `_eval` equivalents for all options?
+* Add support for backup-specific `access_key` and `secret_key` options
