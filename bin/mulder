@@ -22,11 +22,12 @@ except ImportError:
     HAS_PROGRESSBAR = False
 
 
-FILE = os.path.expanduser('~/.mulder')
+FILE = '~/.mulder'
 TMPDIR = tempfile.gettempdir()
 
 
 class Base(object):
+
     message_width = 79
 
     def error(self, msg, exitcode=1):
