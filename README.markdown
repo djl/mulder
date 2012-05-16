@@ -3,10 +3,6 @@ mulder
 
 mulder snapshots, encrypts and uploads your files to S3.
 
-Note: mulder is still in its awkward phase. There are a places where
-it doesn't work quite right and there are places it blows up in a rather
-spectacular fashion.
-
 
 
 USAGE
@@ -57,7 +53,7 @@ wish to do something like this:
 
 * `files`
 
-   A list of comma-separated set of files and directories to be backed
+   A list of comma-separated files and directories to be backed
    up. Each item in this set will be included in the final gzipped
    tarball.
 
