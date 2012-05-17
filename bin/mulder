@@ -24,31 +24,28 @@ except ImportError:
 
 FILE = '~/.mulder'
 TMPDIR = tempfile.gettempdir()
+MESSAGE_WIDTH = 72
 
 
-class Base(object):
+def error(msg, exitcode=1):
+    """
+    Print ``msg`` to stderr and exit with ``exitcode``.
+    """
+    msg = os.path.basename(sys.argv[0]) + ': ' + msg
+    msg = '\n'.join(textwrap.wrap(msg, MESSAGE_WIDTH)) + '\n'
+    sys.stderr.write(msg)
+    sys.exit(exitcode)
 
-    message_width = 79
-
-    def error(self, msg, exitcode=1):
-        """
-        Print ``msg`` to stderr and exit with ``exitcode``.
-        """
-        msg = os.path.basename(sys.argv[0]) + ': ' + msg
-        msg = '\n'.join(textwrap.wrap(msg, self.message_width)) + '\n'
-        sys.stderr.write(msg)
-        sys.exit(exitcode)
-
-    def expand(self, fn):
-        """
-        Fully expand a path.
-        """
-        fn = os.path.expandvars(fn)
-        fn = os.path.expanduser(fn)
-        return os.path.abspath(fn)
+def expand(fn):
+    """
+    Fully expand a path.
+    """
+    fn = os.path.expandvars(fn)
+    fn = os.path.expanduser(fn)
+    return os.path.abspath(fn)
 
 
-class Mulder(Base):
+class Mulder(object):
 
     def __init__(self):
         self.setup_config()
@@ -59,7 +56,7 @@ class Mulder(Base):
         Run a backup.
         """
         if not self.config.has_section(backup):
-            self.error("Invalid backup '%s'" % backup)
+            error("Invalid backup '%s'" % backup)
 
         # build a dict to pass to Backup()
         opts = {}
@@ -96,7 +93,7 @@ class Mulder(Base):
 
             # couldn't find any option
             if not getattr(self, option, ''):
-                self.error("Missing option '%s' in your config file." % option)
+                error("Missing option '%s' in your config file." % option)
 
     def setup_config(self):
         """
@@ -106,16 +103,16 @@ class Mulder(Base):
         self.backups = []
 
         try:
-            self.config.readfp(open(self.expand(FILE)))
+            self.config.readfp(open(expand(FILE)))
         except IOError:
-            self.error("Couldn't read your config file.")
+            error("Couldn't read your config file.")
 
         for section in self.config.sections():
             if section != 'auth':
                 self.backups.append(section)
 
 
-class Backup(Base):
+class Backup(object):
 
     REQUIRED_OPTIONS = ['bucket', 'name', 'files']
 
@@ -144,9 +141,9 @@ class Backup(Base):
             self.encrypt_archive()
             self.upload_archive()
         except S3ResponseError, e:
-            self.error("Error in backup '%s': %s" % (self.backup, e.error_message))
+            error("Error in backup '%s': %s" % (self.backup, e.error_message))
         except Exception as e:
-            self.error(e)
+            error(e)
         finally:
             self.cleanup()
 
@@ -232,13 +229,13 @@ class Backup(Base):
         exists.
         """
         if not self.files:
-            self.error("No files specified for backup '%s'" % self.backup)
+            error("No files specified for backup '%s'" % self.backup)
 
         files = []
         for fn in self.files.split(','):
-            fn = self.expand(fn.strip())
+            fn = expand(fn.strip())
             if not any([os.path.isfile(fn), os.path.isdir(fn)]):
-                self.error("Invalid file/directory '%s' for backup '%s'" % (fn, self.backup))
+                error("Invalid file/directory '%s' for backup '%s'" % (fn, self.backup))
             files.append(fn)
         self.files = files
 
@@ -256,7 +253,7 @@ class Backup(Base):
         """
         for option in self.REQUIRED_OPTIONS:
             if not getattr(self, option, None):
-                self.error("Backup '%s' is missing option '%s'" % (self.backup, option))
+                error("Backup '%s' is missing option '%s'" % (self.backup, option))
 
 
 def main():
