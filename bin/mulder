@@ -47,53 +47,33 @@ def expand(fn):
 
 class Mulder(object):
 
+    OPTIONS = ['bucket', 'exclude', 'files', 'gpg', 'name', 'access_key', 'secret_key']
+
     def __init__(self):
         self.setup_config()
-        self.setup_auth()
 
     def backup(self, backup):
         """
         Run a backup.
         """
-        if not self.config.has_section(backup):
+        try:
+            options = self.options[backup]
+        except KeyError:
             error("Invalid backup '%s'" % backup)
 
-        # build a dict to pass to Backup()
-        opts = {}
-        for tpl in self.config.items(backup):
-            opts[tpl[0]] = tpl[1]
-        opts['backup'] = backup
-        opts['access_key'] = self.access_key
-        opts['secret_key'] = self.secret_key
+        options['backup'] = backup
+        options['access_key'] = self.options['auth']['access_key']
+        options['secret_key'] = self.options['auth']['secret_key']
 
-        backup = Backup(**opts)
+        backup = Backup(**options)
         backup.run()
 
-    def eval_option(self, cmd):
+    def eval(self, cmd):
         """
         Call ``cmd``, returning it's stdout output.
         """
         proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
         return proc.communicate()[0].strip()
-
-    def setup_auth(self):
-        """
-        Set up the S3 authentication.
-        """
-        for option in ['access_key', 'secret_key']:
-            # try to get the regular options
-            if self.config.has_option('auth', option):
-                value = self.config.get('auth', option)
-                setattr(self, option, value)
-
-            # try to get the `_eval` option
-            if self.config.has_option('auth', option + '_eval'):
-                value = self.eval_option(self.config.get('auth', option + '_eval'))
-                setattr(self, option, value)
-
-            # couldn't find any option
-            if not getattr(self, option, ''):
-                error("Missing option '%s' in your config file." % option)
 
     def setup_config(self):
         """
@@ -101,6 +81,7 @@ class Mulder(object):
         """
         self.config = ConfigParser.ConfigParser()
         self.backups = []
+        self.options = {}
 
         try:
             self.config.readfp(open(expand(FILE)))
@@ -110,6 +91,18 @@ class Mulder(object):
         for section in self.config.sections():
             if section != 'auth':
                 self.backups.append(section)
+
+            self.options[section] = {}
+            for option in self.OPTIONS:
+                # regular option
+                if self.config.has_option(section, option):
+                    self.options[section][option] = self.config.get(section, option)
+
+                # _eval option
+                if self.config.has_option(section, option + '_eval'):
+                    cmd = self.config.get(section, option + '_eval')
+                    self.options[section][option] = self.eval(cmd)
+
 
 
 class Backup(object):
@@ -163,7 +156,7 @@ class Backup(object):
 
         tarball = tarfile.open(filename, 'w|gz')
         for fn in self.files:
-            tarball.add(fn, filter=self.validate_exclude)
+            tarball.add(fn, exclude=self.validate_exclude)
         tarball.close()
 
         self.archive = filename

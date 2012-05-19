@@ -33,17 +33,6 @@ section of this file corresponds to a single backup.
 AWS access and secret keys are stored in an `auth` section. The
 settings are not so cryptically called `access_key` and `secret_key`.
 
-This section also supports two special settings: `access_key_eval` and
-`secret_key_eval`. These settings can be used to specify a shell
-command which returns the relevant values.
-
-If, for example, you kept your credentials in GNOME Keyring, you may
-wish to do something like this:
-
-    [auth]
-    access_key_eval = gnome-keyring-query get aws_access_key
-    secret_key_eval = gnome-keyring-query get aws_secret_key
-
 
 ### Backup settings
 
@@ -99,11 +88,21 @@ EXAMPLE
     bucket = bob-misc
 
 
+Each setting has a corresponding `_eval` setting which can be used to
+call an external script.
+
+If, for example, you kept your credentials in GNOME Keyring, you may
+wish to do something like this:
+
+    [auth]
+    access_key_eval = gnome-keyring-query get aws_access_key
+    secret_key_eval = gnome-keyring-query get aws_secret_key
+
+
 
 REQUIREMENTS
 ------------
 
-* A faily recent version of Python 2.X (tested on 2.7)
 * [boto](http://boto.cloudhackers.com/)
 * [progressbar](http://pypi.python.org/pypi/progressbar/) (optional, but it's pretty)
 
@@ -113,5 +112,4 @@ TODO
 ----
 
 * Refactor. Damn this thing is ugly.
-* Add `_eval` equivalents for all options?
 * Add support for backup-specific `access_key` and `secret_key` options
