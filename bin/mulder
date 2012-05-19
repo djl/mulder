@@ -56,14 +56,21 @@ class Mulder(object):
         """
         Run a backup.
         """
+        options = {}
+        options['backup'] = backup
+
+        # make sure the requested backup exists
         try:
             options = self.options[backup]
         except KeyError:
             error("Invalid backup '%s'" % backup)
 
-        options['backup'] = backup
-        options['access_key'] = self.options['auth']['access_key']
-        options['secret_key'] = self.options['auth']['secret_key']
+        # check for backup-specific AWS keys
+        for key in ['access_key', 'secret_key']:
+            try:
+                options[key] = self.options[backup][key]
+            except KeyError:
+                options[key] = self.options['auth'][key]
 
         backup = Backup(**options)
         backup.run()

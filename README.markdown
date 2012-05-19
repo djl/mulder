@@ -33,6 +33,9 @@ section of this file corresponds to a single backup.
 AWS access and secret keys are stored in an `auth` section. The
 settings are not so cryptically called `access_key` and `secret_key`.
 
+`access_key` and `secret_key` can also be set individually for each
+backup, should backups require different credentials.
+
 
 ### Backup settings
 
@@ -58,6 +61,18 @@ settings are not so cryptically called `access_key` and `secret_key`.
 
    Encrypt snapshots with your default key.
 
+* `access_key`
+
+   The AWS access key.
+
+* `secret_key`
+
+   The AWS secret key.
+
+
+Each setting has a corresponding `_eval` setting which can be used to
+call an external script. See below for an example.
+
 
 
 EXAMPLE
@@ -66,15 +81,16 @@ EXAMPLE
     [auth]
     access_key = ACCESSKEY
     secret_key = SECRETKEY
-    # alternative version with GNOME Keyring
-    # access_key_eval = gnome-keyring-query get aws_access_key
-    # secret_key_eval = gnome-keyring-query get aws_secret_key
+
 
     [documents]
     name = "documents-%Y-%m-%d"
     files = /home/bob/Documents
     bucket = bob-documents
     gpg = true
+    # override the global 'auth' settings
+    access_key_eval = gnome-keyring-query get aws_access_key_documents
+    secret_key_eval = gnome-keyring-query get aws_secret_key_documents
 
     [var]
     name = "var-%Y-%m-%d"
@@ -88,28 +104,9 @@ EXAMPLE
     bucket = bob-misc
 
 
-Each setting has a corresponding `_eval` setting which can be used to
-call an external script.
-
-If, for example, you kept your credentials in GNOME Keyring, you may
-wish to do something like this:
-
-    [auth]
-    access_key_eval = gnome-keyring-query get aws_access_key
-    secret_key_eval = gnome-keyring-query get aws_secret_key
-
-
 
 REQUIREMENTS
 ------------
 
 * [boto](http://boto.cloudhackers.com/)
 * [progressbar](http://pypi.python.org/pypi/progressbar/) (optional, but it's pretty)
-
-
-
-TODO
-----
-
-* Refactor. Damn this thing is ugly.
-* Add support for backup-specific `access_key` and `secret_key` options
