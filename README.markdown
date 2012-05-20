@@ -84,22 +84,23 @@ EXAMPLE
 
 
     [documents]
-    name = "documents-%Y-%m-%d"
+    name = documents-%Y-%m-%d
     files = /home/bob/Documents
     bucket = bob-documents
     gpg = true
+
     # override the global 'auth' settings
     access_key_eval = gnome-keyring-query get aws_access_key_documents
     secret_key_eval = gnome-keyring-query get aws_secret_key_documents
 
     [var]
-    name = "var-%Y-%m-%d"
+    name = var-%Y-%m-%d
     files = /home/bob/var
     exclude = /home/bob/var/tmp
     bucket = bob-var
 
     [misc]
-    name = "var-%Y-%m-%d"
+    name = misc-%Y-%m-%d
     files = /home/bob/misc, /home/bob/this, /home/bob/that
     bucket = bob-misc
 
