@@ -56,9 +56,6 @@ class Mulder(object):
         """
         Run a backup.
         """
-        options = {}
-        options['backup'] = backup
-
         # make sure the requested backup exists
         try:
             options = self.options[backup]
