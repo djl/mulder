@@ -129,6 +129,7 @@ class Backup(object):
         # best to do this here so we don't create any unneccesary files
         # or network connections
         self.validate_options()
+        self.validate_exclude()
         self.validate_files()
         self.setup_connection()
 
@@ -163,7 +164,7 @@ class Backup(object):
 
         tarball = tarfile.open(filename, 'w|gz')
         for fn in self.files:
-            tarball.add(fn, exclude=self.validate_exclude)
+            tarball.add(fn, exclude=self.excluded)
         tarball.close()
 
         self.archive = filename
@@ -179,6 +180,12 @@ class Backup(object):
             proc.communicate()
             self.archive = self.archive + '.gpg'
             self.archives.append(self.archive)
+
+    def excluded(self, tarinfo):
+        """
+        Checks if a file should be excluded from the archive.
+        """
+        return tarinfo in self.exclude
 
     def upload_archive(self):
         """
@@ -223,6 +230,17 @@ class Backup(object):
         if HAS_PROGRESSBAR:
             self.progressbar.update(current)
 
+    def validate_exclude(self):
+        """
+        Expand all the filenames in the exclude option. We do not need
+        to validate the each file exists as it would be excluded
+        anyway.
+        """
+        exclude = []
+        for fn in self.exclude.split(','):
+            exclude.append(expand(fn.strip()))
+        self.exclude = exclude
+
     def validate_files(self):
         """
         Make sure the files option is not empty and that each file
@@ -238,14 +256,6 @@ class Backup(object):
                 error("Invalid file/directory '%s' for backup '%s'" % (fn, self.backup))
             files.append(fn)
         self.files = files
-
-    def validate_exclude(self, tarinfo):
-        """
-        Checks if a file should be excluded from the archive.
-        """
-        if tarinfo in getattr(self, 'exclude', []):
-            return None
-        return tarinfo
 
     def validate_options(self):
         """
