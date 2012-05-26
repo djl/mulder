@@ -61,13 +61,15 @@ backup, should backups require different credentials.
 
    Encrypt snapshots with your default key.
 
-* `access_key`
+* `access_key` (optional)
 
-   The AWS access key.
+   The AWS access key. If not given, will use the default key in the
+   `auth` section.
 
-* `secret_key`
+* `secret_key` (optional)
 
-   The AWS secret key.
+   The AWS secret key. If not given, will use the default key in the
+   `auth` section.
 
 
 Each setting has a corresponding `_eval` setting which can be used to
