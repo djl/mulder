@@ -234,8 +234,9 @@ class Backup(object):
         anyway.
         """
         exclude = []
-        for fn in self.exclude.split(','):
-            exclude.append(expand(fn.strip()))
+        if hasattr(self, 'exclude'):
+            for fn in self.exclude.split(','):
+                exclude.append(expand(fn.strip()))
         self.exclude = exclude
 
     def validate_files(self):
@@ -274,7 +275,7 @@ def main():
 
     # list all backups
     if len(sys.argv) == 1:
-        sys.stdout.write('\n'.join(mulder.backups) + '\n')
+        sys.stdout.write('\n'.join(sorted(mulder.backups)) + '\n')
         sys.exit(0)
 
     # do it
