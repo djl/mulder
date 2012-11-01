@@ -199,8 +199,8 @@ class Backup(object):
         """
         Display a very simple percentage-based progress bar.
         """
-        sys.stdout.write('\r\x1b[K' + str(cur * 100 / total) + '%')
-        sys.stdout.flush()
+        sys.stderr.write('\r\x1b[K' + str(cur * 100 / total) + '%')
+        sys.stderr.flush()
 
     def validate_exclude(self):
         """
