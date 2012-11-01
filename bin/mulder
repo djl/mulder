@@ -15,12 +15,6 @@ from boto.exception import S3ResponseError
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 
-try:
-    import progressbar
-    HAS_PROGRESSBAR = True
-except ImportError:
-    HAS_PROGRESSBAR = False
-
 
 FILE = '~/.mulder'
 TMPDIR = tempfile.gettempdir()
@@ -193,8 +187,7 @@ class Backup(object):
         bucket = self.conn.get_bucket(self.bucket)
         key = Key(bucket)
         key.name = basename
-        self.start_progressbar(basename, size)
-        key.set_contents_from_filename(self.archive, cb=self.update_progressbar, num_cb=100)
+        key.set_contents_from_filename(self.archive, cb=self.progress)
 
     def setup_connection(self):
         """
@@ -202,30 +195,12 @@ class Backup(object):
         """
         self.conn = S3Connection(self.access_key, self.secret_key)
 
-    def start_progressbar(self, filename, size):
-        if not HAS_PROGRESSBAR:
-            return
-        widgets = [
-            filename, ' ', progressbar.Bar(), ' ',
-            progressbar.FileTransferSpeed(), ' | ', progressbar.Percentage(),
-            ' ',  progressbar.ETA()
-        ]
-        self.progressbar = progressbar.ProgressBar(widgets=widgets, maxval=size)
-        self.progressbar.start()
-
-    def finish_progressbar(self):
+    def progress(self, cur, total):
         """
-        Finish progress bar.
+        Display a very simple percentage-based progress bar.
         """
-        if HAS_PROGRESSBAR:
-            self.progressbar.finish()
-
-    def update_progressbar(self, current, total):
-        """
-        Update progress bar.
-        """
-        if HAS_PROGRESSBAR:
-            self.progressbar.update(current)
+        sys.stdout.write('\r\x1b[K' + str(cur * 100 / total) + '%')
+        sys.stdout.flush()
 
     def validate_exclude(self):
         """
