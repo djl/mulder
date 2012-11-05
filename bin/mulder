@@ -2,7 +2,6 @@
 """
 Usage: mulder [<backup>]
 """
-import ConfigParser
 import datetime
 import os
 import subprocess
@@ -10,6 +9,11 @@ import sys
 import tarfile
 import tempfile
 import textwrap
+
+try:
+    import configparser
+except ImportError:
+    import ConfigParser as configparser
 
 from boto.exception import S3ResponseError
 from boto.s3.connection import S3Connection
@@ -77,7 +81,7 @@ class Mulder(object):
         """
         Parse config file.
         """
-        self.config = ConfigParser.ConfigParser()
+        self.config = configparser.ConfigParser()
         self.backups = []
         self.options = {}
 
@@ -132,7 +136,7 @@ class Backup(object):
             self.create_archive()
             self.encrypt_archive()
             self.upload_archive()
-        except S3ResponseError, e:
+        except S3ResponseError as e:
             error("Error in backup '%s': %s" % (self.backup, e.error_message))
         except Exception as e:
             error(e)
