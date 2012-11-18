@@ -84,9 +84,7 @@ class Mulder(object):
             error("Couldn't read your config file.")
 
         for section in self.config.sections():
-            if section != 'auth':
-                self.backups.append(section)
-
+            self.backups.append(section)
             self.options[section] = {}
             for option in self.OPTIONS:
                 # regular option

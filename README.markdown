@@ -87,7 +87,7 @@ EXAMPLE
     bucket = bob-documents
     gpg = true
 
-    # override the global 'auth' settings for this backup
+    # override the global settings for this backup
     access_key_eval = gnome-keyring-query get aws_access_key_documents
     secret_key_eval = gnome-keyring-query get aws_secret_key_documents
 
