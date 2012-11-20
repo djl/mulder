@@ -43,96 +43,17 @@ def expand(fn):
     return os.path.abspath(fn)
 
 
-class Mulder(object):
-
-    OPTIONS = ['bucket', 'exclude', 'files', 'gpg', 'name', 'access_key', 'secret_key']
-
-    def __init__(self):
-        self.setup_config()
-
-    def backup(self, backup):
-        """
-        Run a backup.
-        """
-        # make sure the requested backup exists
-        try:
-            options = self.options[backup]
-        except KeyError:
-            error("Invalid backup '%s'" % backup)
-
-        backup = Backup(**options)
-        backup.run()
-
-    def eval(self, cmd):
-        """
-        Call ``cmd``, returning it's stdout output.
-        """
-        proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
-        return proc.communicate()[0].strip()
-
-    def setup_config(self):
-        """
-        Parse config file.
-        """
-        self.config = configparser.ConfigParser()
-        self.backups = []
-        self.options = {}
-
-        try:
-            self.config.readfp(open(expand(FILE)))
-        except IOError:
-            error("Couldn't read your config file.")
-
-        for section in self.config.sections():
-            self.backups.append(section)
-            self.options[section] = {}
-            for option in self.OPTIONS:
-                # regular option
-                if self.config.has_option(section, option):
-                    self.options[section][option] = self.config.get(section, option)
-
-                # _eval option
-                if self.config.has_option(section, option + '_eval'):
-                    cmd = self.config.get(section, option + '_eval')
-                    self.options[section][option] = self.eval(cmd)
-
-
-
 class Backup(object):
 
+    OPTIONS = ['bucket', 'exclude', 'files', 'gpg', 'name', 'access_key', 'secret_key']
     REQUIRED_OPTIONS = ['bucket', 'name', 'files']
 
-    def __init__(self, bucket, name, files, **kwargs):
-        self.bucket = bucket
-        self.name = name
-        self.files = files
-
-        # set the options
-        for k, v in kwargs.items():
-            setattr(self, k, v)
-
-        # validate options, file and S3 connections
-        # best to do this here so we don't create any unneccesary files
-        # or network connections
+    def __init__(self, options):
+        self.setup_config(options)
         self.validate_options()
         self.validate_exclude()
         self.validate_files()
         self.setup_connection()
-
-    def run(self):
-        """
-        Create an archive and upload it, encrypting if necessary.
-        """
-        try:
-            self.create_archive()
-            self.encrypt_archive()
-            self.upload_archive()
-        except S3ResponseError as e:
-            error("Error in backup '%s': %s" % (self.backup, e.error_message))
-        except Exception as e:
-            error(e)
-        finally:
-            self.cleanup()
 
     def cleanup(self):
         """
@@ -167,11 +88,59 @@ class Backup(object):
             self.archive = self.archive + '.gpg'
             self.archives.append(self.archive)
 
+    def eval(self, cmd):
+        """
+        Call ``cmd``, returning it's stdout output.
+        """
+        proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+        return proc.communicate()[0].strip()
+
     def excluded(self, tarinfo):
         """
         Checks if a file should be excluded from the archive.
         """
         return tarinfo in self.exclude
+
+    def progress(self, cur, total):
+        """
+        Display a very simple percentage-based progress bar.
+        """
+        sys.stderr.write(str(cur * 100 / total) + "%\r")
+        sys.stderr.flush()
+
+    def run(self):
+        """
+        Create an archive and upload it, encrypting if necessary.
+        """
+        try:
+            self.create_archive()
+            self.encrypt_archive()
+            self.upload_archive()
+        except S3ResponseError as e:
+            error("Error in backup '%s': %s" % (self.backup, e.error_message))
+        except Exception as e:
+            error(e)
+        finally:
+            self.cleanup()
+
+    def setup_config(self, options):
+        """
+        Set up configuration for this backup.
+        """
+        for option in self.OPTIONS:
+            # regular option
+            if option in options.keys():
+                setattr(self, option, options[option])
+
+            # _eval option
+            if option + '_eval' in options.keys():
+                setattr(self, option, self.eval(options[option + '_eval']))
+
+    def setup_connection(self):
+        """
+        Set up a connection to S3.
+        """
+        self.conn = S3Connection(self.access_key, self.secret_key)
 
     def upload_archive(self):
         """
@@ -183,19 +152,6 @@ class Backup(object):
         key = Key(bucket)
         key.name = basename
         key.set_contents_from_filename(self.archive, cb=self.progress)
-
-    def setup_connection(self):
-        """
-        Set up a connection to S3.
-        """
-        self.conn = S3Connection(self.access_key, self.secret_key)
-
-    def progress(self, cur, total):
-        """
-        Display a very simple percentage-based progress bar.
-        """
-        sys.stderr.write(str(cur * 100 / total) + "%\r")
-        sys.stderr.flush()
 
     def validate_exclude(self):
         """
@@ -235,21 +191,28 @@ class Backup(object):
 
 
 def main():
-    # help message
-    if len(sys.argv) > 1 and sys.argv[1] in ('-h', '--help'):
-        sys.stderr.write(__doc__.lstrip())
-        sys.exit(2)
+    config = configparser.ConfigParser()
 
-    # the heavy lifter
-    mulder = Mulder()
+    try:
+        config.readfp(open(expand(FILE)))
+    except IOError:
+        error("Couldn't read your config file.")
 
     # list all backups
     if len(sys.argv) == 1:
-        sys.stdout.write('\n'.join(sorted(mulder.backups)) + '\n')
+        sys.stdout.write('\n'.join(sorted(config.sections())) + '\n')
         sys.exit(0)
 
-    # do it
-    mulder.backup(sys.argv[1])
+    # does the backup exist?
+    try:
+        options = dict(config.items(sys.argv[1]))
+    except configparser.NoSectionError:
+        error("Invalid backup '%s'" % sys.argv[1])
+
+    # backup is good. let's do it
+    backup = Backup(options)
+    backup.run()
+
 
 if __name__ == '__main__':
     main()
