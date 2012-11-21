@@ -47,7 +47,8 @@ class Backup(object):
     OPTIONS = ['bucket', 'exclude', 'files', 'gpg', 'name', 'access_key', 'secret_key']
     REQUIRED_OPTIONS = ['bucket', 'name', 'files']
 
-    def __init__(self, options):
+    def __init__(self, options, backup):
+        self.backup = backup
         self.setup_config(options)
         self.validate_options()
         self.validate_exclude()
@@ -209,7 +210,7 @@ def main():
         error("Invalid backup '%s'" % sys.argv[1])
 
     # backup is good. let's do it
-    backup = Backup(options)
+    backup = Backup(options, sys.argv[1])
     backup.run()
 
 
