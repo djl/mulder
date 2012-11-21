@@ -8,7 +8,6 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-import textwrap
 
 try:
     import configparser
@@ -30,9 +29,9 @@ def error(msg, exitcode=1):
     Print ``msg`` to stderr and exit with ``exitcode``.
     """
     msg = os.path.basename(sys.argv[0]) + ': ' + msg
-    msg = '\n'.join(textwrap.wrap(msg, MESSAGE_WIDTH)) + '\n'
-    sys.stderr.write(msg)
+    sys.stderr.write(msg + '\n')
     sys.exit(exitcode)
+
 
 def expand(fn):
     """
