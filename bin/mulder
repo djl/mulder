@@ -77,9 +77,9 @@ class Backup(object):
         self.archive = filename
         self.archives = [filename]
 
-    def encrypt_archive(self, force=False):
+    def encrypt_archive(self):
         """
-        Encrypt the archive if necessary (or if forced).
+        Encrypt the archive if necessary.
         """
         if getattr(self, 'gpg', force):
             cmds = ['gpg', '--encrypt', '--default-recipient-self', self.archive]
