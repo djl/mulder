@@ -146,11 +146,9 @@ class Backup(object):
         """
         Upload the archive to S3.
         """
-        size = os.stat(self.archive).st_size
-        basename = os.path.basename(self.archive)
         bucket = self.conn.get_bucket(self.bucket)
         key = Key(bucket)
-        key.name = basename
+        key.name = os.path.basename(self.archive)
         key.set_contents_from_filename(self.archive, cb=self.progress)
 
     def validate_exclude(self):
