@@ -21,7 +21,6 @@ from boto.s3.key import Key
 
 FILE = '~/.mulder'
 TMPDIR = tempfile.gettempdir()
-MESSAGE_WIDTH = 72
 
 
 def error(msg, exitcode=1):
