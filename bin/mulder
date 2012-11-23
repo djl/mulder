@@ -70,7 +70,11 @@ class Backup(object):
 
         tarball = tarfile.open(filename, 'w|gz')
         for fn in self.files:
-            tarball.add(fn, exclude=self.excluded)
+            try:
+                # use filter for Python 2.7+
+                tarball.add(fn, filter=self.filter)
+            except TypeError:
+                tarball.add(fn, exclude=self.excluded)
         tarball.close()
 
         self.archive = filename
@@ -99,6 +103,14 @@ class Backup(object):
         Checks if a file should be excluded from the archive.
         """
         return tarinfo in self.exclude
+
+    def filter(self, tarinfo):
+        """
+        Checks if a file should be excluded from the archive.
+        """
+        if tarinfo.name in self.exclude:
+            return None
+        return tarinfo
 
     def progress(self, cur, total):
         """
