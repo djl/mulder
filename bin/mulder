@@ -80,7 +80,7 @@ class Backup(object):
         """
         Encrypt the archive if necessary.
         """
-        if getattr(self, 'gpg', force):
+        if getattr(self, 'gpg', False):
             cmds = ['gpg', '--encrypt', '--default-recipient-self', self.archive]
             proc = subprocess.Popen(cmds)
             proc.communicate()
