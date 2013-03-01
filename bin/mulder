@@ -108,7 +108,7 @@ class Backup(object):
         """
         Checks if a file should be excluded from the archive.
         """
-        if tarinfo.name in self.exclude:
+        if '/' + tarinfo.name in self.exclude:
             return None
         return tarinfo
 
