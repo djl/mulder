@@ -1,7 +1,7 @@
 mulder
 ------
 
-mulder snapshots, encrypts and uploads your files to S3.
+mulder snapshots, encrypts and uploads your files somewhere.
 
 
 
@@ -41,19 +41,13 @@ section of this file corresponds to a single backup.
    up. Each item in this set will be included in the final gzipped
    tarball.
 
-* `bucket`
+* `destination`
 
-   The S3 bucket to upload to.
+   Where the new archive should be placed. This must be preceded by
+   the relevant scheme - either 's3://' for Amazon S3 or 'rsync://'
+   for a remote server.
 
-* `access_key`
-
-   The AWS access key. If not given, will use the default key in the
-   `auth` section.
-
-* `secret_key`
-
-   The AWS secret key. If not given, will use the default key in the
-   `auth` section.
+   Multiple destinations are delimited by commas.
 
 * `exclude` (optional)
 
@@ -62,6 +56,10 @@ section of this file corresponds to a single backup.
 * `gpg` (optional)
 
    Encrypt snapshots with your default key.
+
+* `access_key` and `secret_key` - (Required only for S3 uploads)
+
+   The AWS access and secret keys.
 
 
 Each setting has a corresponding `_eval` setting which can be used to
@@ -84,7 +82,7 @@ EXAMPLE
     [documents]
     name = documents-%Y-%m-%d
     files = /home/bob/Documents
-    bucket = bob-documents
+    destination = s3://bob-documents
     gpg = true
 
     # override the global settings for this backup
@@ -95,16 +93,16 @@ EXAMPLE
     name = var-%Y-%m-%d
     files = /home/bob/var
     exclude = /home/bob/var/tmp
-    bucket = bob-var
+    destination = s3://bob-var, rsync://bob@host:/path/to/somewhere
 
     [misc]
     name = misc-%Y-%m-%d
     files = /home/bob/misc, /home/bob/this, /home/bob/that
-    bucket = bob-misc
+    destination = rsync:///home/bob/backups # a local directory
 
 
 
 REQUIREMENTS
 ------------
 
-* [boto](http://boto.cloudhackers.com/)
+* [boto](http://boto.cloudhackers.com/) (only for S3 uploads)

@@ -14,10 +14,6 @@ try:
 except ImportError:
     import ConfigParser as configparser
 
-from boto.exception import S3ResponseError
-from boto.s3.connection import S3Connection
-from boto.s3.key import Key
-
 
 FILE = '~/.mulder'
 TMPDIR = tempfile.gettempdir()
@@ -41,18 +37,62 @@ def expand(fn):
     return os.path.abspath(fn)
 
 
+class Uploader(object):
+    def __init__(self, options):
+        self.options = options
+
+    def progress(self, cur, total):
+        """
+        Display a very simple percentage-based progress bar.
+        """
+        sys.stderr.write(str(cur * 100 / total) + "%\r")
+        sys.stderr.flush()
+
+
+class RsyncUploader(Uploader):
+    """
+    Transfer a file via rsync.
+    """
+
+    scheme = 'rsync'
+
+    def upload(self, fn):
+        cmds = ['rsync', '-a', '-z', '--progress', fn, self.options['destination']]
+        proc = subprocess.Popen(cmds)
+        proc.communicate()
+
+
+class S3Uploader(Uploader):
+    """
+    Upload a file to S3.
+    """
+
+    scheme = 's3'
+
+    def upload(self, fn):
+        from boto.s3.connection import S3Connection
+        from boto.s3.key import Key
+
+        conn = S3Connection(self.options['access_key'], self.options['secret_key'])
+        bucket = conn.get_bucket(self.options['destination'])
+        key = Key(bucket)
+        key.name = os.path.basename(fn)
+        key.set_contents_from_filename(fn, cb=self.progress)
+
+
 class Backup(object):
 
-    OPTIONS = ['bucket', 'exclude', 'files', 'gpg', 'name', 'access_key', 'secret_key']
-    REQUIRED_OPTIONS = ['bucket', 'name', 'files']
+    REQUIRED_OPTIONS = ['destination', 'name', 'files']
 
-    def __init__(self, options, backup):
-        self.backup = backup
+    def __init__(self, options):
+        self.options = {}
+        self.backup_options = {}
+
         self.setup_config(options)
         self.validate_options()
+        self.validate_destination()
         self.validate_exclude()
         self.validate_files()
-        self.setup_connection()
 
     def cleanup(self):
         """
@@ -65,7 +105,7 @@ class Backup(object):
         """
         Create the archive from the given list of files.
         """
-        filename = datetime.datetime.now().strftime(self.name) + '.tar.gz'
+        filename = datetime.datetime.now().strftime(self.options['name']) + '.tar.gz'
         filename = os.path.join(TMPDIR, filename)
 
         tarball = tarfile.open(filename, 'w|gz')
@@ -84,7 +124,7 @@ class Backup(object):
         """
         Encrypt the archive if necessary.
         """
-        if getattr(self, 'gpg', False):
+        if not self.options.get('gpg', False):
             cmds = ['gpg', '--encrypt', '--default-recipient-self', self.archive]
             proc = subprocess.Popen(cmds)
             proc.communicate()
@@ -112,13 +152,6 @@ class Backup(object):
             return None
         return tarinfo
 
-    def progress(self, cur, total):
-        """
-        Display a very simple percentage-based progress bar.
-        """
-        sys.stderr.write(str(cur * 100 / total) + "%\r")
-        sys.stderr.flush()
-
     def run(self):
         """
         Create an archive and upload it, encrypting if necessary.
@@ -127,10 +160,8 @@ class Backup(object):
             self.create_archive()
             self.encrypt_archive()
             self.upload_archive()
-        except S3ResponseError as e:
-            error("Error in backup '%s': %s" % (self.backup, e.error_message))
         except Exception as e:
-            error(e)
+            error(str(e))
         finally:
             self.cleanup()
 
@@ -138,29 +169,47 @@ class Backup(object):
         """
         Set up configuration for this backup.
         """
-        for option in self.OPTIONS:
-            # regular option
-            if option in options.keys():
-                setattr(self, option, options[option])
+        for key, value in options.items():
+            if key.endswith('_eval'):
+                value = self.eval(value)
+                key = key.replace('_eval', '')
 
-            # _eval option
-            if option + '_eval' in options.keys():
-                setattr(self, option, self.eval(options[option + '_eval']))
+            if key in self.REQUIRED_OPTIONS:
+                self.options[key] = value
+            else:
+                self.backup_options[key] = value
 
-    def setup_connection(self):
-        """
-        Set up a connection to S3.
-        """
-        self.conn = S3Connection(self.access_key, self.secret_key)
 
     def upload_archive(self):
         """
-        Upload the archive to S3.
+        Upload the archive.
         """
-        bucket = self.conn.get_bucket(self.bucket)
-        key = Key(bucket)
-        key.name = os.path.basename(self.archive)
-        key.set_contents_from_filename(self.archive, cb=self.progress)
+        for dest in self.destinations:
+            dest.upload(self.archive)
+
+    def validate_destination(self):
+        """
+        Validate destination.
+        """
+        destinations = []
+
+        for d in self.options['destination'].split(','):
+            scheme, destination = d.strip().split('://', 1)
+            uploader = None
+
+            for u in Uploader.__subclasses__():
+                if scheme == u.scheme:
+                    self.backup_options['destination'] = destination
+                    uploader = u(self.backup_options)
+                    break
+
+            if not uploader:
+                error('Unknown scheme "%s".' % scheme)
+
+            destinations.append(uploader)
+
+        self.destinations = destinations
+
 
     def validate_exclude(self):
         """
@@ -169,9 +218,8 @@ class Backup(object):
         anyway.
         """
         exclude = []
-        if hasattr(self, 'exclude'):
-            for fn in self.exclude.split(','):
-                exclude.append(expand(fn.strip()))
+        for fn in self.options.get('exclude', '').split(','):
+            exclude.append(expand(fn.strip()))
         self.exclude = exclude
 
     def validate_files(self):
@@ -179,14 +227,14 @@ class Backup(object):
         Make sure the files option is not empty and that each file
         exists.
         """
-        if not self.files:
-            error("No files specified for backup '%s'" % self.backup)
+        if not self.options['files']:
+            error("No files specified.")
 
         files = []
-        for fn in self.files.split(','):
+        for fn in self.options['files'].split(','):
             fn = expand(fn.strip())
             if not any([os.path.isfile(fn), os.path.isdir(fn)]):
-                error("Invalid file/directory '%s' for backup '%s'" % (fn, self.backup))
+                error("Invalid file/directory '%s'." % fn)
             files.append(fn)
         self.files = files
 
@@ -195,8 +243,8 @@ class Backup(object):
         Make sure each required option is present.
         """
         for option in self.REQUIRED_OPTIONS:
-            if not getattr(self, option, None):
-                error("Backup '%s' is missing option '%s'" % (self.backup, option))
+            if not self.options.get(option, None):
+                error("Missing required option '%s'." % option)
 
 
 def main():
@@ -219,7 +267,7 @@ def main():
         error("Invalid backup '%s'" % sys.argv[1])
 
     # backup is good. let's do it
-    backup = Backup(options, sys.argv[1])
+    backup = Backup(options)
     backup.run()
 
 
