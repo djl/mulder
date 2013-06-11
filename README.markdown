@@ -44,7 +44,7 @@ section of this file corresponds to a single backup.
 * `destination`
 
    Where the new archive should be placed. This must be preceded by
-   the relevant scheme - either 's3://' for Amazon S3 or 'rsync://'
+   the relevant scheme - either `s3://` for Amazon S3 or `rsync://`
    for a remote server.
 
    Multiple destinations are delimited by commas.
