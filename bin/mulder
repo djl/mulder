@@ -37,6 +37,45 @@ def expand(fn):
     return os.path.abspath(fn)
 
 
+class FileIterable(object):
+    def __init__(self, filename, chunksize, callback):
+        self.filename = filename
+        self.chunksize = chunksize
+        self.callback = callback
+        self.totalsize = os.path.getsize(filename)
+        self.readsofar = 0
+
+    def __iter__(self):
+        with open(self.filename, 'rb') as file:
+            while True:
+                data = file.read(self.chunksize)
+                if not data:
+                    sys.stderr.write("\n")
+                    break
+                self.readsofar += len(data)
+                self.callback(self.readsofar, self.totalsize)
+                yield data
+
+    def __len__(self):
+        return self.totalsize
+
+    def read(self, size=-1):
+        return next(self, b'')
+
+
+class FileIterator(object):
+    def __init__(self, fn, chunksize, callback=None):
+        iterable = FileIterable(fn, chunksize, callback)
+        self.iterator = iter(iterable)
+        self.length = len(iterable)
+
+    def read(self, size=-1):
+        return next(self.iterator, b'')
+
+    def __len__(self):
+        return self.length
+
+
 class Uploader(object):
     def __init__(self, options):
         self.options = options
@@ -68,17 +107,21 @@ class S3Uploader(Uploader):
     """
 
     scheme = 's3'
+    buffer_size = 1024 * 1024
 
     def upload(self, fn):
-        from boto.s3.connection import S3Connection
-        from boto.s3.key import Key
+        import botocore.session
 
-        conn = S3Connection(self.options['access_key'], self.options['secret_key'])
-        bucket = conn.get_bucket(self.options['destination'])
-        key = Key(bucket)
-        key.name = os.path.basename(fn)
-        key.set_contents_from_filename(fn, cb=self.progress)
+        session = botocore.session.get_session()
+        session.set_credentials(self.options['access_key'], self.options['secret_key'])
+        service = session.get_service('s3')
+        endpoint = service.get_endpoint()
 
+        key = os.path.basename(fn)
+        bucket = self.options['destination']
+        body = FileIterator(fn, self.buffer_size, self.progress)
+        op = service.get_operation('PutObject')
+        op.call(endpoint, bucket=bucket, key=key, body=body)
 
 class Backup(object):
 
@@ -136,7 +179,7 @@ class Backup(object):
         Call ``cmd``, returning it's stdout output.
         """
         proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
-        return proc.communicate()[0].strip()
+        return proc.communicate()[0].strip().decode('utf-8')
 
     def excluded(self, tarinfo):
         """
@@ -160,8 +203,8 @@ class Backup(object):
             self.create_archive()
             self.encrypt_archive()
             self.upload_archive()
-        except Exception as e:
-            error(str(e))
+        # except Exception as e:
+        #     error(str(e))
         finally:
             self.cleanup()
 
