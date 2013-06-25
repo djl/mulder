@@ -203,8 +203,8 @@ class Backup(object):
             self.create_archive()
             self.encrypt_archive()
             self.upload_archive()
-        # except Exception as e:
-        #     error(str(e))
+        except Exception as e:
+            error(str(e))
         finally:
             self.cleanup()
 
