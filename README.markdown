@@ -105,4 +105,4 @@ EXAMPLE
 REQUIREMENTS
 ------------
 
-* [boto](http://boto.cloudhackers.com/) (only for S3 uploads)
+* [botocore](https://pypi.python.org/pypi/botocore) (only for S3 uploads)
