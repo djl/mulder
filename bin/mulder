@@ -3,6 +3,7 @@
 Usage: mulder [<backup>]
 """
 import datetime
+import mimetypes
 import os
 import subprocess
 import sys
@@ -77,8 +78,18 @@ class FileIterator(object):
 
 
 class Uploader(object):
+
+    content_type = 'application/octet-stream'
+
     def __init__(self, options):
         self.options = options
+
+    def content_type(self, fn):
+        """
+        Get the content type for a given filename.
+        """
+        ext = os.path.splitext(fn)[-1]
+        return mimetypes.types_map.get(ext, self.content_type)
 
     def progress(self, cur, total):
         """
@@ -117,11 +128,13 @@ class S3Uploader(Uploader):
         service = session.get_service('s3')
         endpoint = service.get_endpoint()
 
+        ct = self.content_type(fn)
         key = os.path.basename(fn)
         bucket = self.options['destination']
         body = FileIterator(fn, self.buffer_size, self.progress)
         op = service.get_operation('PutObject')
-        op.call(endpoint, bucket=bucket, key=key, body=body)
+        op.call(endpoint, bucket=bucket, key=key, body=body, content_type=ct)
+
 
 class Backup(object):
 
