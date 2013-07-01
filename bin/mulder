@@ -79,7 +79,7 @@ class FileIterator(object):
 
 class Uploader(object):
 
-    content_type = 'application/octet-stream'
+    CONTENT_TYPE = 'application/octet-stream'
 
     def __init__(self, options):
         self.options = options
@@ -89,7 +89,7 @@ class Uploader(object):
         Get the content type for a given filename.
         """
         ext = os.path.splitext(fn)[-1]
-        return mimetypes.types_map.get(ext, self.content_type)
+        return mimetypes.types_map.get(ext, self.CONTENT_TYPE)
 
     def progress(self, cur, total):
         """
