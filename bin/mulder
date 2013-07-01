@@ -95,7 +95,7 @@ class Uploader(object):
         """
         Display a very simple percentage-based progress bar.
         """
-        sys.stderr.write(str(cur * 100 / total) + "%\r")
+        sys.stderr.write("\r%s%%" % str(cur * 100 / total))
         sys.stderr.flush()
 
 
