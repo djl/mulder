@@ -139,7 +139,7 @@ class S3Uploader(Uploader):
 class Backup(object):
 
     REQUIRED_OPTIONS = ['destination', 'name', 'files']
-    GPG_OPTIONS = ['--sign', '--encrypt', '--default-recipient-self', '--use-agent']
+    GPG_OPTIONS = ['--encrypt', '--default-recipient-self', '--use-agent']
 
     def __init__(self, options):
         self.options = {}
