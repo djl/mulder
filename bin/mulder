@@ -140,10 +140,10 @@ class Backup(object):
 
     REQUIRED_OPTIONS = ['destination', 'name', 'files']
     GPG_OPTIONS = ['--encrypt', '--default-recipient-self', '--use-agent']
+    DELIMITER = '\n'
 
     def __init__(self, options):
         self.options = {}
-        self.backup_options = {}
 
         self.setup_config(options)
         self.validate_options()
@@ -181,7 +181,7 @@ class Backup(object):
         """
         Encrypt the archive if necessary.
         """
-        if not self.options.get('gpg', False):
+        if self.options.get('gpg', False):
             cmds = ['gpg'] + self.GPG_OPTIONS + [self.archive]
             proc = subprocess.Popen(cmds)
             proc.communicate()
@@ -228,42 +228,38 @@ class Backup(object):
             if key.endswith('_eval'):
                 value = self.eval(value)
                 key = key.replace('_eval', '')
-
-            if key in self.REQUIRED_OPTIONS:
-                self.options[key] = value
-            else:
-                self.backup_options[key] = value
+            self.options[key] = value
 
 
     def upload_archive(self):
         """
         Upload the archive.
         """
-        for dest in self.destinations:
-            dest.upload(self.archive)
+        for uploader in self.uploaders:
+            uploader.upload(self.archive)
 
     def validate_destination(self):
         """
         Validate destination.
         """
-        destinations = []
+        uploaders = []
 
-        for d in self.options['destination'].split(','):
+        for d in self.options['destination'].split(self.DELIMITER):
             scheme, destination = d.strip().split('://', 1)
             uploader = None
 
-            for u in Uploader.__subclasses__():
-                if scheme == u.scheme:
-                    self.backup_options['destination'] = destination
-                    uploader = u(self.backup_options)
+            for ulclass in Uploader.__subclasses__():
+                if scheme == ulclass.scheme:
+                    self.options['destination'] = destination
+                    uploader = ulclass(self.options)
                     break
 
             if not uploader:
                 error('Unknown scheme "%s".' % scheme)
 
-            destinations.append(uploader)
+            uploaders.append(uploader)
 
-        self.destinations = destinations
+        self.uploaders = uploaders
 
 
     def validate_exclude(self):
@@ -273,7 +269,7 @@ class Backup(object):
         anyway.
         """
         exclude = []
-        for fn in self.options.get('exclude', '').split(','):
+        for fn in self.options.get('exclude', '').split(self.DELIMITER):
             exclude.append(expand(fn.strip()))
         self.exclude = exclude
 
@@ -286,7 +282,7 @@ class Backup(object):
             error("No files specified.")
 
         files = []
-        for fn in self.options['files'].split(','):
+        for fn in self.options['files'].split(self.DELIMITER):
             fn = expand(fn.strip())
             if not any([os.path.isfile(fn), os.path.isdir(fn)]):
                 error("Invalid file/directory '%s'." % fn)

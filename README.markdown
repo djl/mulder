@@ -37,7 +37,7 @@ section of this file corresponds to a single backup.
 
 * `files`
 
-   A list of comma-separated files and directories to be backed
+   A list of newline-separated files and directories to be backed
    up. Each item in this set will be included in the final gzipped
    tarball.
 
@@ -47,11 +47,11 @@ section of this file corresponds to a single backup.
    the relevant scheme - either `s3://` for Amazon S3 or `rsync://`
    for a remote server.
 
-   Multiple destinations are delimited by commas.
+   Multiple destinations are delimited by newlines.
 
 * `exclude` (optional)
 
-   A comma-separated list of files to exclude from a backup.
+   A newline-separated list of files to exclude from a backup.
 
 * `gpg` (optional)
 
@@ -93,11 +93,14 @@ EXAMPLE
     name = var-%Y-%m-%d
     files = /home/bob/var
     exclude = /home/bob/var/tmp
-    destination = s3://bob-var, rsync://bob@host:/path/to/somewhere
+    destination = s3://bob-var
+                  rsync://bob@host:/path/to/somewhere
 
     [misc]
     name = misc-%Y-%m-%d
-    files = /home/bob/misc, /home/bob/this, /home/bob/that
+    files = /home/bob/misc
+            /home/bob/this
+            /home/bob/that
     destination = rsync:///home/bob/backups # a local directory
 
 
