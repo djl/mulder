@@ -108,4 +108,4 @@ EXAMPLE
 REQUIREMENTS
 ------------
 
-* [botocore](https://pypi.python.org/pypi/botocore) (only for S3 uploads)
+* S3 support requires [botocore](https://pypi.python.org/pypi/botocore)
