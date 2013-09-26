@@ -5,6 +5,7 @@ Usage: mulder [<backup>]
 import datetime
 import mimetypes
 import os
+import shlex
 import subprocess
 import sys
 import tarfile
@@ -151,7 +152,7 @@ class Backup(object):
         """
         Call ``cmd``, returning it's stdout output.
         """
-        proc = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE)
+        proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE)
         return proc.communicate()[0].strip().decode('utf-8')
 
     def excluded(self, tarinfo):
