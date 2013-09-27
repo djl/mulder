@@ -41,17 +41,8 @@ def expand(fn):
 
 class Uploader(object):
 
-    CONTENT_TYPE = 'application/octet-stream'
-
     def __init__(self, options):
         self.options = options
-
-    def content_type(self, fn):
-        """
-        Get the content type for a given filename.
-        """
-        ext = os.path.splitext(fn)[-1]
-        return mimetypes.types_map.get(ext, self.CONTENT_TYPE)
 
     def progress(self, cur, total):
         """
