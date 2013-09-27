@@ -57,6 +57,10 @@ section of this file corresponds to a single backup.
 
    Encrypt snapshots with your default key.
 
+* `sign` (optional)
+
+   Sign your GPG-encrypted snapshots.
+
 * `access_key` and `secret_key` - (Required only for S3 uploads)
 
    The AWS access and secret keys.

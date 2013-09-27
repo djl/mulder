@@ -99,7 +99,7 @@ class S3Uploader(Uploader):
 class Backup(object):
 
     REQUIRED_OPTIONS = ['destination', 'name', 'files']
-    GPG_OPTIONS = ['--encrypt', '--default-recipient-self', '--use-agent']
+    GPG_OPTIONS = ['--encrypt', '--default-recipient-self', '--quiet', '--batch', '--use-agent']
     DELIMITER = ','
 
     def __init__(self, options):
@@ -141,12 +141,17 @@ class Backup(object):
         """
         Encrypt the archive if necessary.
         """
-        if self.options.get('gpg', False):
-            cmds = ['gpg'] + self.GPG_OPTIONS + [self.archive]
-            proc = subprocess.Popen(cmds)
-            proc.communicate()
-            self.archive = self.archive + '.gpg'
-            self.archives.append(self.archive)
+        if not self.options.get('gpg', False):
+            return
+
+        if self.options.get('sign', False):
+            self.GPG_OPTIONS.append('--sign')
+
+        cmds = ['gpg'] + self.GPG_OPTIONS + [self.archive]
+        proc = subprocess.Popen(cmds)
+        proc.communicate()
+        self.archive = self.archive + '.gpg'
+        self.archives.append(self.archive)
 
     def eval(self, cmd):
         """
