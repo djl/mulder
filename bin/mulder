@@ -199,21 +199,17 @@ class Backup(object):
         Validate destination.
         """
         uploaders = []
+        dests = self.options['destination'].split(self.DELIMITER)
 
-        for d in self.options['destination'].split(self.DELIMITER):
-            scheme, destination = d.strip().split('://', 1)
-            uploader = None
+        for dest in dests:
+            scheme, destination = dest.strip().split('://', 1)
 
             for ulclass in Uploader.__subclasses__():
                 if scheme == ulclass.scheme:
-                    self.options['destination'] = destination
-                    uploader = ulclass(self.options)
-                    break
-
-            if not uploader:
-                error('Unknown scheme "%s".' % scheme)
-
-            uploaders.append(uploader)
+                    options = self.options.copy()
+                    options['destination'] = destination
+                    uploader = ulclass(options)
+                    uploaders.append(uploader)
 
         self.uploaders = uploaders
 
