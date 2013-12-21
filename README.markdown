@@ -53,11 +53,20 @@ section of this file corresponds to a single backup.
 
    A comma-separated list of files to exclude from a backup.
 
-* `gpg` (optional)
+* `gpg_binary` (optional, default: `gpg`)
+
+   Which gpg binary to use.
+
+* `gpg_encrypt` (optional)
 
    Encrypt snapshots with your default key.
 
-* `sign` (optional)
+* `gpg_recipient` (optional)
+
+   Specify user to encrypt for. If not given, the default recipient
+   will be your default key (`--default-recipient-self`).
+
+* `gpg_sign` (optional)
 
    Sign your GPG-encrypted snapshots.
 
@@ -87,7 +96,9 @@ EXAMPLE
     name = documents-%Y-%m-%d
     files = /home/bob/Documents
     destination = s3://bob-documents
-    gpg = true
+    gpg_binary = gpg2
+    gpg_encrypt = true
+    gpg_sign = true
 
     # override the global settings for this backup
     access_key_eval = gnome-keyring-query get aws_access_key_documents
