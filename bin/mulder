@@ -106,7 +106,7 @@ class Backup(object):
         """
         Removes any archives created by the backup.
         """
-        for fn in self.archives:
+        for fn in self.delete_queue:
             os.unlink(fn)
 
     def create_archive(self):
@@ -126,7 +126,7 @@ class Backup(object):
         tarball.close()
 
         self.archive = filename
-        self.archives = [filename]
+        self.delete_queue = [filename]
 
     def encrypt_archive(self):
         """
@@ -149,7 +149,7 @@ class Backup(object):
         proc = subprocess.Popen(cmds)
         proc.communicate()
         self.archive = self.archive + '.gpg'
-        self.archives.append(self.archive)
+        self.delete_queue.append(self.archive)
 
     def eval(self, cmd):
         """
