@@ -25,8 +25,8 @@ Run a backup with `mulder <backup>`:
 SETUP
 -----
 
-Mulder reads from an INI-style config file called `~/.mulder`. Each
-section of this file corresponds to a single backup.
+Mulder reads from a YAML config file called `~/.mulder`. Each section
+of this file corresponds to a single backup.
 
 
 ### Backup settings
@@ -37,21 +37,18 @@ section of this file corresponds to a single backup.
 
 * `files`
 
-   A list of comma-separated files and directories to be backed
-   up. Each item in this set will be included in the final gzipped
-   tarball.
+   A list of files and directories to be backed up. Each item in this
+   set will be included in the final gzipped tarball.
 
 * `destination`
 
-   Where the new archive should be placed. This must be preceded by
-   the relevant scheme - either `s3://` for Amazon S3 or `rsync://`
-   for a remote server.
-
-   Multiple destinations are delimited by commas.
+   A list of places the new archive(s) should be placed. This must be
+   preceded by the relevant scheme - either `s3://` for Amazon S3 or
+   `rsync://` for a remote server.
 
 * `exclude` (optional)
 
-   A comma-separated list of files to exclude from a backup.
+   A list of files to exclude from a backup.
 
 * `gpg_binary` (optional, default: `gpg`)
 
@@ -87,40 +84,48 @@ individual backup.
 EXAMPLE
 -------
 
-    [DEFAULT]
-    access_key = ACCESSKEY
-    secret_key = SECRETKEY
+    DEFAULT:
+      access_key: "ACCESSKEY"
+      secret_key: "SECRETKEY"
 
 
-    [documents]
-    name = documents-%Y-%m-%d
-    files = /home/bob/Documents
-    destination = s3://bob-documents
-    gpg_binary = gpg2
-    gpg_encrypt = true
-    gpg_sign = true
+    documents:
+      name: "documents-%Y-%m-%d"
+      files:
+        - "/home/bob/Documents"
+      destination:
+        - "s3://bob-documents"
+      gpg_binary: "gpg2"
+      gpg_encrypt: true
+      gpg_sign: true
 
-    # override the global settings for this backup
-    access_key_eval = gnome-keyring-query get aws_access_key_documents
-    secret_key_eval = gnome-keyring-query get aws_secret_key_documents
+      # override the global settings for this backup
+      access_key_eval: "gnome-keyring-query get aws_access_key_documents"
+      secret_key_eval: "gnome-keyring-query get aws_secret_key_documents"
 
-    [var]
-    name = var-%Y-%m-%d
-    files = /home/bob/var
-    exclude = /home/bob/var/tmp
-    destination = s3://bob-var,
-                  rsync://bob@host:/path/to/somewhere
+    var:
+      name: "var-%Y-%m-%d"
+      files:
+        - "/home/bob/var"
+      exclude:
+        - "/home/bob/var/tmp"
+      destination:
+        - "s3://bob-var"
+        - "rsync://bob@host:/path/to/somewhere"
 
-    [misc]
-    name = misc-%Y-%m-%d
-    files = /home/bob/misc,
-            /home/bob/this,
-            /home/bob/that
-    destination = rsync:///home/bob/backups # a local directory
+    misc:
+      name: "misc-%Y-%m-%d"
+      files:
+        - "/home/bob/misc"
+        - "/home/bob/this"
+        - "/home/bob/that"
+      destination:
+        - "rsync:///home/bob/backups"
 
 
 
 REQUIREMENTS
 ------------
 
+* [PyYAML](https://pypi.python.org/pypi/PyYAML)
 * S3 support requires [boto](https://pypi.python.org/pypi/boto)

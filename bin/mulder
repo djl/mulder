@@ -11,12 +11,9 @@ import sys
 import tarfile
 import tempfile
 
-try:
-    import configparser
-except ImportError:
-    import ConfigParser as configparser
+import yaml
 
-
+DEFAULT_CONFIG = 'DEFAULT'
 FILE = '~/.mulder'
 TMPDIR = tempfile.gettempdir()
 
@@ -37,6 +34,24 @@ def expand(fn):
     fn = os.path.expandvars(fn)
     fn = os.path.expanduser(fn)
     return os.path.abspath(fn)
+
+
+def load_config(fn):
+    """
+    Load the yaml config file.
+    """
+    config = yaml.load(open(fn).read())
+
+    if DEFAULT_CONFIG not in config.keys():
+        return config
+
+    defaults = config.pop(DEFAULT_CONFIG, {})
+    for key, value in defaults.items():
+        for section in config:
+            if key not in config[section].keys():
+                config[section][key] = value
+    return config
+
 
 
 class Uploader(object):
@@ -206,9 +221,8 @@ class Backup(object):
         Validate destination.
         """
         uploaders = []
-        dests = self.options['destination'].split(self.DELIMITER)
 
-        for dest in dests:
+        for dest in self.options['destination']:
             scheme, destination = dest.strip().split('://', 1)
 
             for ulclass in Uploader.__subclasses__():
@@ -228,7 +242,7 @@ class Backup(object):
         anyway.
         """
         exclude = []
-        for fn in self.options.get('exclude', '').split(self.DELIMITER):
+        for fn in self.options.get('exclude', []):
             exclude.append(expand(fn.strip()))
         self.exclude = exclude
 
@@ -241,7 +255,7 @@ class Backup(object):
             error("No files specified.")
 
         files = []
-        for fn in self.options['files'].split(self.DELIMITER):
+        for fn in self.options['files']:
             fn = expand(fn.strip())
             if not any([os.path.isfile(fn), os.path.isdir(fn)]):
                 error("Invalid file/directory '%s'." % fn)
@@ -258,22 +272,20 @@ class Backup(object):
 
 
 def main():
-    config = configparser.ConfigParser()
-
     try:
-        config.readfp(open(expand(FILE)))
+        config = load_config(expand(FILE))
     except IOError:
         error("Couldn't read your config file.")
 
     # list all backups
     if len(sys.argv) == 1:
-        sys.stdout.write('\n'.join(sorted(config.sections())) + '\n')
+        sys.stdout.write('\n'.join(sorted(config.keys())) + '\n')
         sys.exit(0)
 
     # does the backup exist?
     try:
-        options = dict(config.items(sys.argv[1]))
-    except configparser.NoSectionError:
+        options = dict(config[sys.argv[1]])
+    except IndexError:
         error("Invalid backup '%s'" % sys.argv[1])
 
     # backup is good. let's do it
