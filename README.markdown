@@ -25,8 +25,8 @@ Run a backup with `mulder <backup>`:
 SETUP
 -----
 
-Mulder reads from a YAML config file called `~/.mulder`. Each section
-of this file corresponds to a single backup.
+Mulder reads from a YAML config file `~/.config/mulder/config.yaml`.
+Each hash/dictionary corresponds to a single backup.
 
 
 ### Backup settings

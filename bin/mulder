@@ -13,8 +13,11 @@ import tempfile
 
 import yaml
 
+
+CONFIG_DIR = os.getenv('XDG_CONFIG_HOME', os.path.expanduser("~/.config"))
+CONFIG_FILE = os.path.join(CONFIG_DIR, 'mulder', 'config.yaml')
+
 DEFAULT_CONFIG = 'DEFAULT'
-FILE = '~/.mulder'
 TMPDIR = tempfile.gettempdir()
 
 
@@ -51,7 +54,6 @@ def load_config(fn):
             if key not in config[section].keys():
                 config[section][key] = value
     return config
-
 
 
 class Uploader(object):
@@ -208,7 +210,6 @@ class Backup(object):
                 key = key.replace('_eval', '')
             self.options[key] = value
 
-
     def upload_archive(self):
         """
         Upload the archive.
@@ -233,7 +234,6 @@ class Backup(object):
                     uploaders.append(uploader)
 
         self.uploaders = uploaders
-
 
     def validate_exclude(self):
         """
@@ -273,7 +273,7 @@ class Backup(object):
 
 def main():
     try:
-        config = load_config(expand(FILE))
+        config = load_config(CONFIG_FILE)
     except IOError:
         error("Couldn't read your config file.")
 
