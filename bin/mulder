@@ -91,11 +91,13 @@ class S3Uploader(Uploader):
 
     def upload(self, fn):
         from boto.exception import S3ResponseError
-        from boto.s3.connection import S3Connection
+        from boto.s3.connection import S3Connection, OrdinaryCallingFormat
         from boto.s3.key import Key
 
         try:
-            conn = S3Connection(self.options['access_key'], self.options['secret_key'])
+            conn = S3Connection(self.options['access_key'],
+                                self.options['secret_key'],
+                                calling_format=OrdinaryCallingFormat())
             bucket = conn.get_bucket(self.options['destination'])
             key = Key(bucket)
             key.name = os.path.basename(fn)
