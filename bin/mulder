@@ -1,299 +1,46 @@
-#!/usr/bin/env python
-"""
-Usage: mulder [<backup>]
-"""
-import datetime
-import mimetypes
-import os
-import shlex
-import subprocess
-import sys
-import tarfile
-import tempfile
+#!/usr/bin/env bash
+# Usage: mulder [<backup>]
+set -eu
+set -o pipefail
 
-import yaml
+PROGNAME="$(basename $0)"
+
+PREFIX="${MULDER_DIR:-$HOME/.config/${PROGNAME}}"
+TAR="${MULDER_TAR=$(command -v tar 2> /dev/null)}"
 
 
-CONFIG_DIR = os.getenv('XDG_CONFIG_HOME', os.path.expanduser("~/.config"))
-CONFIG_FILE = os.path.join(CONFIG_DIR, 'mulder', 'config.yaml')
+abort() {
+  echo "$PROGNAME: $1" >&2
+  exit 1
+}
 
-DEFAULT_CONFIG = 'DEFAULT'
-TMPDIR = tempfile.gettempdir()
+cleanup() {
+  rm -r "$(dirname $1)"
+}
 
+# No options given. Just print all available backups
+if [ $# -eq 0 ]; then
+  find "$PREFIX/" -type d -maxdepth 1 | sed 1d | xargs basename
+  exit 0
+fi
 
-def error(msg, exitcode=1):
-    """
-    Print ``msg`` to stderr and exit with ``exitcode``.
-    """
-    msg = os.path.basename(sys.argv[0]) + ': ' + msg
-    sys.stderr.write(msg + '\n')
-    sys.exit(exitcode)
+BACKUP="${!#}"
+PRE_SCRIPT="$PREFIX/$BACKUP/pre"
+POST_SCRIPT="$PREFIX/$BACKUP/post"
 
+[ ! -f "$PREFIX/$BACKUP/config" ] && abort "Unknown backup '$BACKUP'"
 
-def expand(fn):
-    """
-    Fully expand a path.
-    """
-    fn = os.path.expandvars(fn)
-    fn = os.path.expanduser(fn)
-    return os.path.abspath(fn)
+source "$PREFIX/$BACKUP/config" > /dev/null 2>&1
 
+[ -n "$EXCLUDE" ] && exclude=$(printf " --exclude %s" "${EXCLUDE[@]}")
 
-def load_config(fn):
-    """
-    Load the yaml config file.
-    """
-    config = yaml.load(open(fn).read())
+DESTDIR=$(mktemp -d 2>/dev/null || mktemp -d -t $PROGNAME)
+DESTFN="$DESTDIR/$NAME"
 
-    if DEFAULT_CONFIG not in config.keys():
-        return config
+trap "cleanup $DESTFN" INT TERM EXIT
 
-    defaults = config.pop(DEFAULT_CONFIG, {})
-    for key, value in defaults.items():
-        for section in config:
-            if key not in config[section].keys():
-                config[section][key] = value
-    return config
+[ -x $PRE_SCRIPT ] && $PRE_SCRIPT "$DESTFN"
 
+$TAR -c -z -f - ${exclude[@]} ${FILES[@]} | gpg -e -o "$DESTFN"
 
-class Uploader(object):
-
-    def __init__(self, options):
-        self.options = options
-
-    def progress(self, cur, total):
-        """
-        Display a very simple percentage-based progress bar.
-        """
-        sys.stderr.write("\r%s%%" % str(cur * 100 / total))
-        sys.stderr.flush()
-
-
-class RsyncUploader(Uploader):
-    """
-    Transfer a file via rsync.
-    """
-
-    scheme = 'rsync'
-
-    def upload(self, fn):
-        cmds = ['rsync', '-a', '-z', '--progress', fn, self.options['destination']]
-        proc = subprocess.Popen(cmds)
-        proc.communicate()
-
-
-class S3Uploader(Uploader):
-    """
-    Upload a file to S3.
-    """
-
-    scheme = 's3'
-
-    def upload(self, fn):
-        from boto.exception import S3ResponseError
-        from boto.s3.connection import S3Connection, OrdinaryCallingFormat
-        from boto.s3.key import Key
-
-        try:
-            conn = S3Connection(self.options['access_key'],
-                                self.options['secret_key'],
-                                calling_format=OrdinaryCallingFormat())
-            bucket = conn.get_bucket(self.options['destination'])
-            key = Key(bucket)
-            key.name = os.path.basename(fn)
-            key.set_contents_from_filename(fn, cb=self.progress)
-        except S3ResponseError as e:
-            error(e.error_message)
-
-
-class Backup(object):
-
-    REQUIRED_OPTIONS = ['destination', 'name', 'files']
-    GPG_OPTIONS = ['--encrypt', '--quiet', '--batch', '--use-agent']
-    DELIMITER = ','
-
-    def __init__(self, options):
-        self.options = {}
-
-        self.setup_config(options)
-        self.validate_options()
-        self.validate_destination()
-        self.validate_exclude()
-        self.validate_files()
-
-    def cleanup(self):
-        """
-        Removes any archives created by the backup.
-        """
-        for fn in self.delete_queue:
-            os.unlink(fn)
-
-    def create_archive(self):
-        """
-        Create the archive from the given list of files.
-        """
-        filename = datetime.datetime.now().strftime(self.options['name']) + '.tar.gz'
-        filename = os.path.join(TMPDIR, filename)
-
-        tarball = tarfile.open(filename, 'w|gz')
-        for fn in self.files:
-            try:
-                # use filter for Python 2.7+
-                tarball.add(fn, filter=self.filter)
-            except TypeError:
-                tarball.add(fn, exclude=self.excluded)
-        tarball.close()
-
-        self.archive = filename
-        self.delete_queue = [filename]
-
-    def encrypt_archive(self):
-        """
-        Encrypt the archive if necessary.
-        """
-        if not self.options.get('gpg_encrypt', False):
-            return
-
-        if self.options.get('gpg_sign', False):
-            self.GPG_OPTIONS.append('--sign')
-
-        recipient = self.options.get('gpg_recipient', None)
-        if recipient:
-            self.GPG_OPTIONS += ['--recipient', recipient]
-        else:
-            self.GPG_OPTIONS.append('--default-recipient-self')
-
-        gpg_binary = self.options.get('gpg_binary', 'gpg')
-        cmds = [gpg_binary] + self.GPG_OPTIONS + [self.archive]
-        proc = subprocess.Popen(cmds)
-        proc.communicate()
-        self.archive = self.archive + '.gpg'
-        self.delete_queue.append(self.archive)
-
-    def eval(self, cmd):
-        """
-        Call ``cmd``, returning it's stdout output.
-        """
-        proc = subprocess.Popen(shlex.split(cmd), stdout=subprocess.PIPE)
-        return proc.communicate()[0].strip().decode('utf-8')
-
-    def excluded(self, tarinfo):
-        """
-        Checks if a file should be excluded from the archive.
-        """
-        return tarinfo in self.exclude
-
-    def filter(self, tarinfo):
-        """
-        Checks if a file should be excluded from the archive.
-        """
-        if '/' + tarinfo.name in self.exclude:
-            return None
-        return tarinfo
-
-    def run(self):
-        """
-        Create an archive and upload it, encrypting if necessary.
-        """
-        try:
-            self.create_archive()
-            self.encrypt_archive()
-            self.upload_archive()
-        finally:
-            self.cleanup()
-
-    def setup_config(self, options):
-        """
-        Set up configuration for this backup.
-        """
-        for key, value in options.items():
-            if key.endswith('_eval'):
-                value = self.eval(value)
-                key = key.replace('_eval', '')
-            self.options[key] = value
-
-    def upload_archive(self):
-        """
-        Upload the archive.
-        """
-        for uploader in self.uploaders:
-            uploader.upload(self.archive)
-
-    def validate_destination(self):
-        """
-        Validate destination.
-        """
-        uploaders = []
-
-        for dest in self.options['destination']:
-            scheme, destination = dest.strip().split('://', 1)
-
-            for ulclass in Uploader.__subclasses__():
-                if scheme == ulclass.scheme:
-                    options = self.options.copy()
-                    options['destination'] = destination
-                    uploader = ulclass(options)
-                    uploaders.append(uploader)
-
-        self.uploaders = uploaders
-
-    def validate_exclude(self):
-        """
-        Expand all the filenames in the exclude option. We do not need
-        to validate the each file exists as it would be excluded
-        anyway.
-        """
-        exclude = []
-        for fn in self.options.get('exclude', []):
-            exclude.append(expand(fn.strip()))
-        self.exclude = exclude
-
-    def validate_files(self):
-        """
-        Make sure the files option is not empty and that each file
-        exists.
-        """
-        if not self.options['files']:
-            error("No files specified.")
-
-        files = []
-        for fn in self.options['files']:
-            fn = expand(fn.strip())
-            if not any([os.path.isfile(fn), os.path.isdir(fn)]):
-                error("Invalid file/directory '%s'." % fn)
-            files.append(fn)
-        self.files = files
-
-    def validate_options(self):
-        """
-        Make sure each required option is present.
-        """
-        for option in self.REQUIRED_OPTIONS:
-            if not self.options.get(option, None):
-                error("Missing required option '%s'." % option)
-
-
-def main():
-    try:
-        config = load_config(CONFIG_FILE)
-    except IOError:
-        error("Couldn't read your config file.")
-
-    # list all backups
-    if len(sys.argv) == 1:
-        sys.stdout.write('\n'.join(sorted(config.keys())) + '\n')
-        sys.exit(0)
-
-    # does the backup exist?
-    try:
-        options = dict(config[sys.argv[1]])
-    except IndexError:
-        error("Invalid backup '%s'" % sys.argv[1])
-
-    # backup is good. let's do it
-    backup = Backup(options)
-    backup.run()
-
-
-if __name__ == '__main__':
-    main()
+[ -x $POST_SCRIPT ] && $POST_SCRIPT "$DESTFN"

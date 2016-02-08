@@ -1,0 +1,7 @@
+#!/bin/sh
+# Looks like "mymachine-home-2016-02-10.tar.gz.gpg"
+NAME="$(hostname -s)-$($0)-$(date +%Y-%m-%d).tar.gz.gpg"
+# Back up everything in our home directory
+FILES=($HOME)
+# Except for a few unimportant directories
+EXCLUDE=($HOME/tmp $HOME/.cache)

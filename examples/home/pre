@@ -1,0 +1,3 @@
+#!/bin/sh
+backup=$(0)
+notify-send "mulder" "Beginning backup ${backup}"

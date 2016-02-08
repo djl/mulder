@@ -1,0 +1,15 @@
+#!/bin/sh
+# The full path to the new archive is the first argument
+archive=$1
+
+# grab the current backup name
+backup=$(basename $(dirname "$0"))
+
+# rsync the new archive to a remote server
+rsync -avz $archive example.com:/data/backups/$(hostname -s)/
+
+# Also send it to s3 with s3cmd
+s3cmd put $archive s3://mybucket/$(basename $archive)
+
+# Send a notification when everything is done
+notify-send "mulder" "Finished backup ${backup}"
