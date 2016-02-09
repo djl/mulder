@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Usage: mulder [<backup>]
+# Usage: tarcrypt [<backup>]
 set -eu
 set -o pipefail
 
 PROGNAME="$(basename $0)"
 
-PREFIX="${MULDER_DIR:-$HOME/.config/${PROGNAME}}"
-TAR="${MULDER_TAR=$(command -v tar 2> /dev/null)}"
+PREFIX="${TARCRYPT_DIR:-$HOME/.config/${PROGNAME}}"
+TAR="${TARCRYPT_TAR=$(command -v tar 2> /dev/null)}"
 
 
 abort() {

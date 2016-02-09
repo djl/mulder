@@ -12,4 +12,4 @@ rsync -avz $archive example.com:/data/backups/$(hostname -s)/
 s3cmd put $archive s3://mybucket/$(basename $archive)
 
 # Send a notification when everything is done
-notify-send "mulder" "Finished backup ${backup}"
+notify-send "tarcrypt" "Finished backup ${backup}"

@@ -1,36 +1,36 @@
-mulder
-------
+tarcrypt
+--------
 
-A simple script to create a GPG-encrypted tarball.
+A simple script to create GPG-encrypted tarballs.
 
 
 USAGE
 -----
 
-List configs with `mulder`:
+List configs with `tarcrypt`:
 
-    $ mulder
+    $ tarcrypt
     documents
     pictures
     work
 
 
-Run a backup with `mulder <backup>`
+Run a backup with `tarcrypt <backup>`
 
-    $ mulder documents
+    $ tarcrypt documents
 
 
 SETUP
 -----
 
-Configs are just directories kept in `~/.config/mulder`. Each directory
-needs to contain at a file called `config`. This is a regular shell
+Configs are just directories kept in `~/.config/tarcrypt`. Each
+directory must contain a file called `config`. This is a regular shell
 script which will be sourced at run time. This file must contain the
 following variables:
 
 * `NAME`
 
-  The name of GPG-encrypted tarball to be created. `mulder` will not
+  The name of GPG-encrypted tarball to be created. `tarcrypt` will not
   append any extensions to this file (e.g `.tar.gz.gpg`) so you might
   want to do this yourself.
 
@@ -42,7 +42,7 @@ following variables:
 
   An array of files or directories to be excluded from the archive.
 
-`mulder` also supports pre- and post-tarball actions. Just add to
+`tarcrypt` also supports pre- and post-tarball actions. Just add to
 executables in your config directory called `pre` and `post`.
 
 These are called immediately before and after the GPG-encrypted
