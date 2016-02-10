@@ -42,11 +42,29 @@ following variables:
 
   An array of files or directories to be excluded from the archive.
 
-`tarcrypt` also supports pre- and post-tarball actions. Just add to
-executables in your config directory called `pre` and `post`.
 
-These are called immediately before and after the GPG-encrypted
-archive is created. They will be given the path to the archive as
-their first argument.
+HOOKS
+-----
+
+`tarcrypt` supports running custom actions at a few points. Just place
+the following files in your config directories (i.e next to your
+`config` file) and make them executable:
+
+
+* `pre`
+
+  Will be run just before the GPG-encrypted archive is created.
+
+* `post`
+
+  Will be run just after the GPG-encrypted is created.
+
+
+All custom hooks will be passed a single argument - the path to the
+newly created (or soon to be created) archive file.
+
+
+EXAMPLES
+--------
 
 See `examples` for example configurations.
