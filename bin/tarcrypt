@@ -20,6 +20,7 @@ cleanup() {
 
 # No options given. Just print all available backups
 if [ $# -eq 0 ]; then
+  [ -d "$PREFIX" ] || abort "Could not read config directories '$PREFIX'"
   find "$PREFIX/" -type d -maxdepth 1 | sed 1d | xargs basename
   exit 0
 fi
