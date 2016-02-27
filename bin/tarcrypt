@@ -6,7 +6,20 @@ set -o pipefail
 PROGNAME="$(basename $0)"
 
 PREFIX="${TARCRYPT_DIR:-$HOME/.config/${PROGNAME}}"
-TAR="${TARCRYPT_TAR=$(command -v tar 2> /dev/null)}"
+TAR="${TARCRYPT_TAR:-$(command -v tar 2> /dev/null)}"
+
+GPG_OPTS=("--quiet" "--yes" "--compress-algo=none")
+GPG="gpg"
+export GPG_TTY="${GPG_TTY:-$(tty 2>/dev/null)}"
+command -v gpg2 > /dev/null && GPG="gpg2"
+[ -n $GPG_AGENT_INFO || $GPG == "gpg2" ] && GPG_OPTS+=("--batch" "--use-agent")
+
+RECIPIENT="${TARCRYPT_RECIPIENT:-}"
+if [ -n "$RECIPIENT" ]; then
+  GPG_OPTS+=("--recipient ${RECIPIENT}")
+else
+  GPG_OPTS+=("--default-recipient-self")
+fi
 
 
 abort() {
@@ -42,6 +55,6 @@ trap "cleanup $DESTFN" INT TERM EXIT
 
 [ -x $PRE_SCRIPT ] && $PRE_SCRIPT "$DESTFN"
 
-$TAR -c -z -f - ${exclude[@]} ${FILES[@]} | gpg -e -o "$DESTFN"
+$TAR -c -z -f - ${exclude[@]} ${FILES[@]} | $GPG -e -o "$DESTFN" "${GPG_OPTS[@]}"
 
 [ -x $POST_SCRIPT ] && $POST_SCRIPT "$DESTFN"
