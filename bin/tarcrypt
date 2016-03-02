@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Usage: tarcrypt [<backup>]
-set -eu
+set -e
 set -o pipefail
 
-PROGNAME="$(basename $0)"
+PROGNAME=$(basename "$0")
 
 PREFIX="${TARCRYPT_DIR:-$HOME/.config/${PROGNAME}}"
 TAR="${TARCRYPT_TAR:-$(command -v tar 2> /dev/null)}"
@@ -28,13 +28,13 @@ abort() {
 }
 
 cleanup() {
-  rm -r "$(dirname $1)"
+  rm -r "$(dirname "$1")"
 }
 
 # No options given. Just print all available backups
 if [ $# -eq 0 ]; then
   [ -d "$PREFIX" ] || abort "Could not read config directories '$PREFIX'"
-  find "$PREFIX/" -type d -maxdepth 1 | sed 1d | xargs basename
+  find "$PREFIX/" -type d -mindepth 1 -maxdepth 1 -print0 | xargs -0 -n1 basename
   exit 0
 fi
 
@@ -46,15 +46,15 @@ POST_SCRIPT="$PREFIX/$BACKUP/post"
 
 source "$PREFIX/$BACKUP/config" > /dev/null 2>&1
 
-[ -n "$EXCLUDE" ] && exclude=$(printf " --exclude %s" "${EXCLUDE[@]}")
+[ -n "$EXCLUDE" ] && excluded=$(printf " --exclude %s" "${EXCLUDE[@]}")
 
-DESTDIR=$(mktemp -d 2>/dev/null || mktemp -d -t $PROGNAME)
+DESTDIR=$(mktemp -d 2>/dev/null || mktemp -d -t "$PROGNAME")
 DESTFN="$DESTDIR/$NAME"
 
 trap "cleanup $DESTFN" INT TERM EXIT
 
-[ -x $PRE_SCRIPT ] && $PRE_SCRIPT "$DESTFN"
+[ -x "$PRE_SCRIPT" ] && "$PRE_SCRIPT" "$DESTFN"
 
-$TAR -c -z -f - ${exclude[@]} ${FILES[@]} | $GPG -e -o "$DESTFN" "${GPG_OPTS[@]}"
+"$TAR" -c -z -f - "${excluded[@]}" "${FILES[@]}" | "$GPG" -e -o "$DESTFN" "${GPG_OPTS[@]}"
 
-[ -x $POST_SCRIPT ] && $POST_SCRIPT "$DESTFN"
+[ -x "$POST_SCRIPT" ] && "$POST_SCRIPT" "$DESTFN"
