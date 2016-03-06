@@ -55,6 +55,6 @@ trap "cleanup $DESTFN" INT TERM EXIT
 
 [ -x "$PRE_SCRIPT" ] && "$PRE_SCRIPT" "$DESTFN"
 
-"$TAR" -c -z -f - "${excluded[@]}" "${FILES[@]}" | "$GPG" -e -o "$DESTFN" "${GPG_OPTS[@]}"
+"$TAR" -c -z -f - ${excluded[@]} ${FILES[@]} | "$GPG" -e -o "$DESTFN" "${GPG_OPTS[@]}"
 
 [ -x "$POST_SCRIPT" ] && "$POST_SCRIPT" "$DESTFN"
